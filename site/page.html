@@ -432,9 +432,19 @@ function intradayCurve(C,key,spanH,fromTs){
   pts.push({x:now/86400,v:C.now.total,label:"Now"});
   return pts;
 }
+/* when the book started: the first order (charts never reach back before it) */
+function portfolioStart(){
+  const ts=S.trades.map(t=>t.estTs||Date.parse(t.createdAt||"")/1000).filter(x=>x>0);
+  return ts.length?Math.min(...ts):dayNum(S.settings.start)*86400;
+}
 function rangePoints(C){
-  if(S.range==="1d"){ const pts=intradayCurve(C,"i",24,berlinMidnight()); return {pts,intraday:true,base:pts.length?pts[0].v:C.now.total,label:"today"}; }
-  if(S.range==="7"){ const pts=intradayCurve(C,"w",168); if(pts.length>=2) return {pts,intraday:true,base:pts[0].v,label:"past week"}; }
+  const st=portfolioStart(), now=Date.now()/1000, since="since "+fmtDate(S.settings.start), cap=S.settings.startCapital;
+  const fromStart=pts=>{ if(pts.length&&cap){ pts[0]=Object.assign({},pts[0],{v:cap}); } return {pts,intraday:true,base:cap||(pts[0]&&pts[0].v),label:since}; };
+  if(S.range==="1d"){ const m=berlinMidnight(), pts=intradayCurve(C,"i",24,Math.max(m,st));
+    if(st>m) return fromStart(pts); return {pts,intraday:true,base:pts.length?pts[0].v:C.now.total,label:"today"}; }
+  if(S.range==="7"){ const w=now-7*86400, pts=intradayCurve(C,"w",168,Math.max(w,st));
+    if(pts.length>=2) return st>w?fromStart(pts):{pts,intraday:true,base:pts[0].v,label:"past week"}; }
+  if(S.range==="all" && now-st<7*86400){ const pts=intradayCurve(C,"w",168,st); if(pts.length>=2) return fromStart(pts); }
   let pts=C.curve.map(p=>({x:dayNum(p.date),v:p.v,date:p.date,label:fmtDate(p.date)}));
   if(S.range==="7"){
     const cut=dayNum(C.td)-7, inR=pts.filter(p=>p.x>=cut), before=pts.filter(p=>p.x<cut).pop();
