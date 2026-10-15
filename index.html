@@ -578,7 +578,8 @@ function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   if(!S.showBench||!B||B.length<2||!a||!b){ el.innerHTML=""; return; }
   const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
   const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
-  el.innerHTML=`<span class="${cls(br)}" style="font-weight:600">WLS ${fmtPct(br)}<small>same period</small></span>`;
+  const arrow=br>0?"▲":br<0?"▼":"";  /* same form as the portfolio line above: arrow + % first, then what it is */
+  el.innerHTML=`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`;
 }
 function paintHero(v,label,x){
   const h=heroState; if(!h) return;
