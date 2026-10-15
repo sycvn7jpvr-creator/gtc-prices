@@ -1,7 +1,7 @@
 name: prices
 on:
   schedule:
-    - cron: "7,37 0-21 * * 1-5"   # every 30 min, Asia open to US close (UTC)
+    - cron: "25,55 * * * *"   # every 30 min, around the clock
   workflow_dispatch:
 permissions:
   contents: write
