@@ -379,23 +379,6 @@ function makeSmoother(draw){
   return { set(v,m){ tgt=v; meta=m; if(cur==null||RM()){ cur=v; draw(cur,meta); return; } if(!raf) raf=requestAnimationFrame(tick); },
            reset(){ cur=null; if(raf) cancelAnimationFrame(raf); raf=0; } };
 }
-/* ---------- haptic ticks while scrubbing ----------
-   Android: the Vibration API. iPhone (iOS 18+): Safari plays the system haptic when an iOS-style switch
-   (<input type="checkbox" switch>) is toggled, so an invisible one is flipped. Elsewhere this does nothing. */
-const haptic=(()=>{
-  const canVibrate=typeof navigator!=="undefined" && typeof navigator.vibrate==="function";
-  const iOS=typeof navigator!=="undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1));
-  let last=0;
-  return ()=>{
-    const t=performance.now(); if(t-last<28) return; last=t;  /* at most ~35 ticks a second */
-    try{
-      if(canVibrate){ navigator.vibrate(6); return; }
-      if(iOS){ const lab=document.createElement("label"); lab.ariaHidden="true"; lab.style.display="none";
-        const inp=document.createElement("input"); inp.type="checkbox"; inp.setAttribute("switch","");
-        lab.appendChild(inp); document.head.appendChild(lab); lab.click(); lab.remove(); }
-    }catch(e){}
-  };
-})();
 let scrubbing=false, renderDeferred=false, sheetRefresh=null;  /* while a finger is on a chart, refreshes wait */
 /* live updates never redraw the page mid-scroll: they wait until scrolling has stopped */
 let scrollGen=0, lastScrollT=0, rsT=0; document.addEventListener("scroll",()=>{ scrollGen++; lastScrollT=performance.now(); },{capture:true,passive:true});
@@ -667,19 +650,16 @@ function lineChart(box,pts,base,opts){
   /* the line is moved inside the touch/mouse event itself (no wait for the next frame), and placed where the
      finger will be when the frame reaches the screen: the browser's own prediction where available
      (Chrome, Edge, Android), else a short velocity look-ahead; it settles on the exact spot as soon as you stop */
-  let A=null, frozen=false, lastPt=null, vx=0, lastX=null, lastT=0, settle=0, ptype="mouse", lastSeg=null;
-  const SEG=Math.min(32,Math.max(8,pts.length-1));  /* even steps across the chart, independent of how many data points */
+  let A=null, frozen=false, lastPt=null, vx=0, lastX=null, lastT=0, settle=0;
   const LEAD=16, MAXLEAD=24;  /* ms ahead, css px cap */
   const apply=(cx,buttons)=>{ const e={clientX:cx};
     const x=svgX(e), b=nearest(e);
     if(A && (buttons&1)){ putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; showRange(A,b); } return; }
     if(frozen) return;
     putCur(x,yAt(x));
-    if(ptype!=="mouse"){ const sg=Math.round((x-XS[0])/Math.max(1,XS[XS.length-1]-XS[0])*SEG); if(sg!==lastSeg){ lastSeg=sg; haptic(); } }
     if(opts.onScrub){ const [i,j]=idxAt(x), t=XS[j]===XS[i]?0:(x-XS[i])/(XS[j]-XS[i]);
       opts.onScrub({v:pts[i].v+(pts[j].v-pts[i].v)*t, x:pts[i].x+(pts[j].x-pts[i].x)*t, label:b.label}); } };
   const mv=e=>{
-    if(e.pointerType) ptype=e.pointerType;
     const cx=e.clientX, t=e.timeStamp;
     if(lastX==null || t-lastT>=100){ vx=0; lastX=cx; lastT=t; }
     else if(t-lastT>=4){ const v=(cx-lastX)/(t-lastT); vx=vx*0.4+v*0.6; lastX=cx; lastT=t; }  /* events closer than 4 ms: keep the speed, avoid spikes */
@@ -689,12 +669,12 @@ function lineChart(box,pts,base,opts){
     apply(px,e.buttons);
     clearTimeout(settle); const bt=e.buttons;
     if(px!==cx) settle=setTimeout(()=>{ if(curOn){ vx=0; apply(cx,bt); } },50); };
-  const lv=()=>{ if(A) return; clearTimeout(settle); lastX=null; vx=0; lastPt=null; lastSeg=null; frozen=false; rect=null; curOn=false; hideSel(); xh.style.visibility="hidden"; scrubbing=false; if(opts.onLeave) opts.onLeave();
+  const lv=()=>{ if(A) return; clearTimeout(settle); lastX=null; vx=0; lastPt=null; frozen=false; rect=null; curOn=false; hideSel(); xh.style.visibility="hidden"; scrubbing=false; if(opts.onLeave) opts.onLeave();
     if(renderDeferred){ renderDeferred=false; setTimeout(render,0); } };
   hit.addEventListener("pointerenter",measure);
   /* touch: an up/down swipe scrolls the page (the browser takes it over), a sideways swipe or a short hold scrubs */
   let tp=null;
-  const startScrub=(cx)=>{ tp=null; mv({clientX:cx,timeStamp:performance.now(),buttons:1,pointerType:"touch"}); };
+  const startScrub=(cx)=>{ tp=null; mv({clientX:cx,timeStamp:performance.now(),buttons:1}); };
   hit.addEventListener("pointerdown",e=>{ measure(); lastX=null; vx=0;
     if(e.pointerType==="touch"){ const cx=e.clientX; tp={x0:cx,y0:e.clientY,cx,timer:setTimeout(()=>{ if(tp) startScrub(tp.cx); },170)}; return; }
     if(e.pointerType==="mouse"){ frozen=false; hideSel(); A=nearest(e); try{hit.setPointerCapture(e.pointerId);}catch(_){} }
