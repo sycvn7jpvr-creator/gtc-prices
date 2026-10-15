@@ -45,19 +45,38 @@ def names_by_ticker():
     return out
 
 
-def yahoo_news(sym):
-    items = []
-    for n in (yf.Ticker(sym).news or [])[:15]:
-        c = n.get("content") or n
-        title = c.get("title")
-        url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link"))
-        src = (c.get("provider") or {}).get("displayName") or c.get("publisher") or "Yahoo Finance"
-        ts = c.get("providerPublishTime")
-        if not ts and c.get("pubDate"):
+def _yahoo_item(n):
+    c = n.get("content") or n
+    title = c.get("title")
+    url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link"))
+    src = (c.get("provider") or {}).get("displayName") or c.get("publisher") or "Yahoo Finance"
+    ts = c.get("providerPublishTime")
+    if not ts and c.get("pubDate"):
+        try:
             ts = int(time.mktime(time.strptime(c["pubDate"][:19], "%Y-%m-%dT%H:%M:%S")) - time.timezone)
-        if title and url and ts:
-            items.append({"title": title, "url": url, "source": src, "ts": int(ts)})
-    return items
+        except Exception:
+            ts = None
+    return {"title": title, "url": url, "source": src, "ts": int(ts)} if title and url and ts else None
+
+
+def yahoo_news(sym, dbg):
+    """Yahoo Finance headlines: the search endpoint (what finance.yahoo.com uses) plus Ticker.news as fallback."""
+    raw = []
+    try:
+        res = yf.Search(sym, news_count=15, max_results=1)
+        raw += list(res.news or [])
+        dbg["yahoo_search_raw"] = len(res.news or [])
+    except Exception as e:
+        dbg["yahoo_search_error"] = f"{type(e).__name__}: {e}"[:160]
+    try:
+        tn = yf.Ticker(sym).news or []
+        dbg["yahoo_ticker_raw"] = len(tn)
+        if tn and not raw:
+            dbg["yahoo_ticker_keys"] = sorted((tn[0].get("content") or tn[0]).keys())[:12]
+        raw += list(tn)
+    except Exception as e:
+        dbg["yahoo_ticker_error"] = f"{type(e).__name__}: {e}"[:160]
+    return [x for x in (_yahoo_item(n) for n in raw) if x]
 
 
 def google_news(name):
@@ -102,7 +121,7 @@ def main():
     for bbg, name in names_by_ticker().items():
         found, dbg = [], {}
         try:
-            y = yahoo_news(to_yahoo(bbg)[0])
+            y = yahoo_news(to_yahoo(bbg)[0], dbg)
             dbg["yahoo"] = len(y)
             found += y
         except Exception as e:
