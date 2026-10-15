@@ -753,9 +753,6 @@ function levelHits(C){
     }
     if(hit && now-hit.ts<86400) out.push(Object.assign(hit,{p}));
   }
-  // demo: open the site with #demo to see how an alert looks (fake NVDA take-profit, real data untouched)
-  if(location.hash==="#demo") out.push({kind:"TP",ts:Math.floor(now)-1200,px:221.30,lvl:220.00,demo:true,
-    p:{ticker:"NVDA UW",name:"NVIDIA (demo)",ccy:"USD"}});
   return out.sort((a,b)=>b.ts-a.ts);
 }
 function renderAlerts(C){
@@ -770,7 +767,7 @@ function renderAlerts(C){
     ${hits.map(h=>`<button type="button" class="al-row" data-hit="${esc(h.p.ticker)}"><span class="al-k">${h.kind==="SL"?"STOP LOSS":"TAKE PROFIT"}</span>
       <span class="al-n">${esc(h.p.name||h.p.ticker)}</span>
       <span class="al-d num">${nPx(h.px)} ${h.kind==="SL"?"≤":"≥"} ${nPx(h.lvl)} ${esc(h.p.ccy)} · ${ago(h.ts)}</span></button>`).join("")}
-    <div class="al-f">${hits.some(h=>h.demo)?"Demo alert (#demo in the link). Your real positions are unchanged. ":""}Review the position and place the trade in TMSG. This alert clears 24 h after the level was hit.</div></section>`;
+    <div class="al-f">Review the position and place the trade in TMSG. This alert clears 24 h after the level was hit.</div></section>`;
   box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>{ if(C.now.positions.some(p=>p.ticker===b.dataset.hit)) openPosition(b.dataset.hit,C); });
 }
 
@@ -924,8 +921,7 @@ function render(){
 function setTab(t){ S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); }
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
-let rz; window.addEventListener("hashchange",()=>render());
-window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) render(); },120); });
+let rz; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) render(); },120); });
 
 async function resolveNames(ids){
   if(!S.user || !ids.length) return;
