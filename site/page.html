@@ -524,11 +524,12 @@ function renderOverview(C){
     const w=p.value/tot, pend=p.pending>0;
     const r = p.cost>0? p.unreal/p.cost : 0;
     const L=livePx()[p.ticker];
-    const day = L && L.prev>0 && L.d===C.td ? L.p/L.prev-1 : null;
-    const asOf = p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
+    const day = L && L.prev>0 ? L.p/L.prev-1 : null;
+    const dayLbl = L && L.d===C.td ? "today" : (L ? fmtDate(L.d) : "");
+    const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
       <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
-        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null?`<span class="num ${cls(day)}">${fmtPct(day)} today</span>`:""}`}${p.est?'<span class="pill wait">EST. FILL</span>':""}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}`}${p.est?'<span class="pill wait">EST. FILL</span>':""}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
         <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
       <div class="wbar" title="${n2.format(w*100)}% of portfolio"><i class="${w>0.2?"over":""}" style="width:${Math.min(100,w/0.25*100)}%"></i><u style="left:80%"></u></div>
