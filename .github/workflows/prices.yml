@@ -16,6 +16,7 @@ jobs:
           python-version: "3.12"
       - run: pip install --quiet yfinance pandas
       - run: python fetch_prices.py
+      - run: python news.py || echo "news step failed, prices still saved"
       - name: Commit prices
         run: |
           git config user.name "price-bot"
