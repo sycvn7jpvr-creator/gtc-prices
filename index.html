@@ -391,9 +391,26 @@ function slidePill(box,activeSel){
   if(!ind){ ind=document.createElement("i"); ind.className="slide-ind"; ind.setAttribute("aria-hidden","true"); box.prepend(ind); box.classList.add("has-ind"); }
   const a=box.querySelector(activeSel); if(!a||!a.offsetWidth){ ind.style.opacity="0"; return; }
   const first=!ind.__on; ind.__on=true;
+  const x1=a.offsetLeft, y1=a.offsetTop, w1=a.offsetWidth, h1=a.offsetHeight, p0=ind.__p;
+  ind.__p={x:x1,y:y1,w:w1,h:h1};
+  const moved=p0 && (Math.abs(p0.x-x1)>1 || Math.abs(p0.y-y1)>1);
+  if(!first && moved && !RM() && ind.animate && p0.y===y1){
+    /* liquid move: the leading edge runs ahead, the trailing edge catches up */
+    const L=Math.min(p0.x,x1), span=Math.max(p0.x+p0.w,x1+w1)-L;
+    ind.style.transition="none";
+    ind.style.width=w1+"px"; ind.style.height=h1+"px"; ind.style.transform=`translate(${x1}px,${y1}px)`; ind.style.opacity="1";
+    if(ind.__a) ind.__a.cancel();
+    ind.__a=ind.animate([
+      {transform:`translate(${p0.x}px,${y1}px)`,width:p0.w+"px"},
+      {transform:`translate(${L}px,${y1}px)`,width:span+"px",offset:.42},
+      {transform:`translate(${x1}px,${y1}px)`,width:w1+"px"}
+    ],{duration:420,easing:"cubic-bezier(.45,.05,.2,1)"});
+    ind.__a.onfinish=()=>{ ind.style.transition=""; };
+    return;
+  }
   if(first) ind.style.transition="none";
-  ind.style.width=a.offsetWidth+"px"; ind.style.height=a.offsetHeight+"px";
-  ind.style.transform=`translate(${a.offsetLeft}px,${a.offsetTop}px)`; ind.style.opacity="1";
+  ind.style.width=w1+"px"; ind.style.height=h1+"px";
+  ind.style.transform=`translate(${x1}px,${y1}px)`; ind.style.opacity="1";
   if(first){ void ind.offsetWidth; ind.style.transition=""; }
 }
 function pills(){ slidePill($(".tabs"),'[aria-selected="true"]'); slidePill($("#ranges"),'[aria-pressed="true"]'); slidePill($("#sRanges"),'[aria-pressed="true"]'); slidePill($("#side"),'[aria-pressed="true"]'); }
@@ -1173,8 +1190,25 @@ function render(){
   pills();
 }
 const TAB_ORDER=["overview","news","trades"];
-function setTab(t){ const from=TAB_ORDER.indexOf(S.tab), to=TAB_ORDER.indexOf(t), changed=S.tab!==t; S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render();
-  if(changed){ const v=$("#view"); v.classList.remove("enter-l","enter-r"); retrigger(v,to>from?"enter-r":"enter-l"); } }
+function setTab(t){ const from=TAB_ORDER.indexOf(S.tab), to=TAB_ORDER.indexOf(t), changed=S.tab!==t;
+  const v=$("#view"), fx=changed && !RM() && v.animate, dir=to>from?1:-1;
+  let ghost=null;
+  if(fx){  /* a copy of the old tab stays on top for a moment and slides away */
+    ghost=v.cloneNode(true); ghost.removeAttribute("id"); ghost.setAttribute("aria-hidden","true");
+    ghost.querySelectorAll("[id],[data-pos],[data-nf],[data-trade],[data-hit]").forEach(e=>{ e.removeAttribute("id"); e.removeAttribute("data-pos"); e.removeAttribute("data-nf"); e.removeAttribute("data-trade"); e.removeAttribute("data-hit"); });
+    ghost.style.cssText=`position:absolute;top:${v.offsetTop}px;left:${v.offsetLeft}px;width:${v.offsetWidth}px;margin:0;pointer-events:none;z-index:1`;
+    v.parentNode.insertBefore(ghost,v.nextSibling);
+  }
+  S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render();
+  if(!fx) return;
+  ghost.animate([{opacity:1,transform:"none"},{opacity:0,transform:`translateX(${-dir*36}px) scale(.985)`}],{duration:200,easing:"cubic-bezier(.4,0,1,1)",fill:"forwards"}).onfinish=()=>ghost.remove();
+  v.animate([{opacity:0,transform:`translateX(${dir*36}px)`},{opacity:1,transform:"none"}],{duration:380,delay:70,easing:"cubic-bezier(.16,1,.3,1)",fill:"backwards"});
+  /* rows that are on screen rise in one after another */
+  const vh=innerHeight; let k=0;
+  v.querySelectorAll(".stats>div,.row,.sec-h,.nf,.empty,.foot").forEach(el=>{
+    const r=el.getBoundingClientRect(); if(r.bottom<0||r.top>vh||k>=14) return;
+    el.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],{duration:420,delay:110+k*32,easing:"cubic-bezier(.16,1,.3,1)",fill:"backwards"}); k++; });
+}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
 /* only a width change needs a redraw: iPhone Safari fires "resize" whenever its toolbar shrinks or grows while scrolling */
