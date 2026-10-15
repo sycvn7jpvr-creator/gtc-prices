@@ -98,7 +98,9 @@ def main():
                 lb["p"] = same_day[2]
             prev = next((row[2] for row in reversed(rows) if row[0] < lb["d"]), None)
             today_open = next((row[1] for row in rows if row[0] == lb["d"]), None)
-            latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open)
+            wk = yf.Ticker(sym).history(period="8d", interval="1h", auto_adjust=False).dropna(subset=["Close"])
+            week = [[int(i.timestamp()), r(c / scale)] for i, c in zip(wk.index, wk["Close"])]
+            latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open, w=week)
             hist["px"][bbg] = [row for row in rows if row[0] < today]  # completed days only
         except Exception as e:  # keep going for the other names
             latest["errors"].append(f"{bbg} ({sym}): {type(e).__name__}: {e}"[:200])
