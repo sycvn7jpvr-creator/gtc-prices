@@ -93,6 +93,9 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{display:inline-flex;align-items:baseline;gap:6px;background:var(--accent-soft);color:var(--ink);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:600;max-width:100%}
+.chip i{font-style:normal;font-family:var(--f-mono);font-size:11px;font-weight:500;color:var(--accent);white-space:nowrap}
 .mrow{grid-template-columns:minmax(0,1fr) auto}
 .wbar{grid-column:1/-1;height:3px;background:var(--sunk);border-radius:2px;position:relative;margin-top:4px}
 .wbar i{position:absolute;inset:0 auto 0 0;background:var(--muted);border-radius:2px;opacity:.55}
@@ -554,7 +557,7 @@ function renderMarkets(C){
     const code=String(p.ticker).trim().split(/\s+/).pop().toUpperCase();
     const M=MARKETS.find(m=>m.codes.includes(code)); const key=M?M.name:"Other";
     let g=groups.find(x=>x.key===key); if(!g){ g={key,M,names:[]}; groups.push(g); }
-    g.names.push(p.name||p.ticker);
+    g.names.push(p.name||p.ticker); (g.items=g.items||[]).push(p);
   }
   if(!groups.length) return "";
   const rows=groups.map(g=>{ if(!g.M) return {html:`<div class="row"><div><div class="r-name">Other markets</div><div class="r-sub">${esc(g.names.join(", "))}</div></div><div></div></div>`,o:9e15};
@@ -563,7 +566,7 @@ function renderMarkets(C){
     const hint=s.st==="closed"&&s.opensIn!=null?` · opens in ${Math.floor(s.opensIn/3600000)} h ${Math.round(s.opensIn%3600000/60000)} min`:(s.weekend?" · weekend":"");
     return {o:wallToMs(g.M.tz,g.M.open),html:`<div class="row mrow"><div style="min-width:0"><div class="r-name">${esc(g.M.name)} <span class="r-sub" style="display:inline">${esc(g.M.ex)}</span></div>
       <div class="r-sub"><b class="num" style="color:var(--ink)">${s.hours}</b>${s.ext?" · "+s.ext:""}${hint}</div>
-      <div class="r-sub">${esc(g.names.join(" · "))}</div></div><div>${pill}</div></div>`};
+      <div class="chips">${g.items.map(x=>`<span class="chip">${esc(x.name||x.ticker)}<i>${esc(x.ticker)}</i></span>`).join("")}</div></div><div>${pill}</div></div>`};
   }).sort((a,b)=>a.o-b.o).map(r=>r.html).join("");
   return `<section class="sec"><div class="sec-h"><h2>Market hours</h2><span>German time, today</span></div><div class="list">${rows}</div>
     <p class="foot" style="text-align:left;margin:0">Regular trading on each stock's home exchange, which is where the challenge prices come from. Public holidays not included.</p></section>`;
