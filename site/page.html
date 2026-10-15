@@ -91,6 +91,8 @@ button.row:hover{background:var(--sunk)}
 .pill.sell{background:var(--down-soft);color:var(--down)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
+.pill.mkt{background:var(--sunk);color:var(--muted)}
+.mrow{grid-template-columns:minmax(0,1fr) auto}
 .wbar{grid-column:1/-1;height:3px;background:var(--sunk);border-radius:2px;position:relative;margin-top:4px}
 .wbar i{position:absolute;inset:0 auto 0 0;background:var(--muted);border-radius:2px;opacity:.55}
 .wbar i.over{background:var(--down);opacity:1}
@@ -504,6 +506,65 @@ function renderChart(C,R){
   lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label),onLeave:()=>paintHero()});
 }
 
+/* ---------- market hours (shown in German time) ---------- */
+const MARKETS=[
+  {name:"Tokyo",ex:"Tokyo Stock Exchange",tz:"Asia/Tokyo",open:"09:00",close:"15:30",codes:["JT"]},
+  {name:"Taiwan",ex:"Taiwan Stock Exchange",tz:"Asia/Taipei",open:"09:00",close:"13:30",codes:["TT","TO"]},
+  {name:"Hong Kong",ex:"HKEX",tz:"Asia/Hong_Kong",open:"09:30",close:"16:00",codes:["HK"]},
+  {name:"Seoul",ex:"Korea Exchange",tz:"Asia/Seoul",open:"09:00",close:"15:30",codes:["KS"]},
+  {name:"Singapore",ex:"SGX",tz:"Asia/Singapore",open:"09:00",close:"17:00",codes:["SP"]},
+  {name:"Sydney",ex:"ASX",tz:"Australia/Sydney",open:"10:00",close:"16:00",codes:["AU","AT"]},
+  {name:"Frankfurt",ex:"Xetra",tz:"Europe/Berlin",open:"09:00",close:"17:30",codes:["GY","GR","GF"]},
+  {name:"Brussels",ex:"Euronext Brussels",tz:"Europe/Brussels",open:"09:00",close:"17:30",codes:["BB"]},
+  {name:"Amsterdam / Paris / Milan / Madrid",ex:"Euronext & co.",tz:"Europe/Paris",open:"09:00",close:"17:30",codes:["NA","FP","IM","SM","ID","PL"]},
+  {name:"Zurich",ex:"SIX Swiss Exchange",tz:"Europe/Zurich",open:"09:00",close:"17:30",codes:["SW","SE","VX"]},
+  {name:"Stockholm",ex:"Nasdaq Stockholm",tz:"Europe/Stockholm",open:"09:00",close:"17:30",codes:["SS"]},
+  {name:"Oslo",ex:"Oslo Børs",tz:"Europe/Oslo",open:"09:00",close:"16:20",codes:["NO"]},
+  {name:"Copenhagen",ex:"Nasdaq Copenhagen",tz:"Europe/Copenhagen",open:"09:00",close:"17:00",codes:["DC"]},
+  {name:"Helsinki / Vienna",ex:"Nasdaq Helsinki, Wiener Börse",tz:"Europe/Helsinki",open:"10:00",close:"18:30",codes:["FH","AV"]},
+  {name:"London",ex:"London Stock Exchange",tz:"Europe/London",open:"08:00",close:"16:30",codes:["LN"]},
+  {name:"Johannesburg",ex:"JSE",tz:"Africa/Johannesburg",open:"09:00",close:"17:00",codes:["SJ"]},
+  {name:"New York",ex:"NYSE & Nasdaq",tz:"America/New_York",open:"09:30",close:"16:00",pre:"04:00",post:"20:00",codes:["US","UN","UW","UQ","UR","UA","UP"]},
+  {name:"Toronto",ex:"TSX",tz:"America/Toronto",open:"09:30",close:"16:00",codes:["CN","CT"]},
+];
+function tzParts(tz,ms){ const o={}; new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",weekday:"short",hourCycle:"h23"}).formatToParts(new Date(ms)).forEach(x=>o[x.type]=x.value); return o; }
+/* epoch ms of a wall-clock time hh:mm on the market's current local date */
+function wallToMs(tz,hhmm){
+  const now=Date.now(), p=tzParts(tz,now), [h,m]=hhmm.split(":").map(Number);
+  let guess=Date.UTC(+p.year,+p.month-1,+p.day,h,m);
+  for(let i=0;i<2;i++){ const q=tzParts(tz,guess); const shown=Date.UTC(+q.year,+q.month-1,+q.day,+q.hour,+q.minute); guess+= Date.UTC(+p.year,+p.month-1,+p.day,h,m)-shown; }
+  return guess;
+}
+const berlinHM = ms => new Date(ms).toLocaleTimeString("de-DE",{timeZone:"Europe/Berlin",hour:"2-digit",minute:"2-digit"});
+function marketState(M){
+  const now=Date.now(), wd=tzParts(M.tz,now).weekday, weekend=wd==="Sat"||wd==="Sun";
+  const o=wallToMs(M.tz,M.open), c=wallToMs(M.tz,M.close);
+  const pre=M.pre?wallToMs(M.tz,M.pre):null, post=M.post?wallToMs(M.tz,M.post):null;
+  let st="closed";
+  if(!weekend){ if(now>=o&&now<c) st="open"; else if(pre&&now>=pre&&now<o) st="pre"; else if(post&&now>=c&&now<post) st="post"; }
+  return {st,weekend,hours:berlinHM(o)+"–"+berlinHM(c),ext:pre?`pre-market from ${berlinHM(pre)}, after hours until ${berlinHM(post)}`:"",opensIn:!weekend&&now<o?o-now:null};
+}
+function renderMarkets(C){
+  const groups=[];
+  for(const p of C.now.positions){
+    const code=String(p.ticker).trim().split(/\s+/).pop().toUpperCase();
+    const M=MARKETS.find(m=>m.codes.includes(code)); const key=M?M.name:"Other";
+    let g=groups.find(x=>x.key===key); if(!g){ g={key,M,names:[]}; groups.push(g); }
+    g.names.push(p.name||p.ticker);
+  }
+  if(!groups.length) return "";
+  const rows=groups.map(g=>{ if(!g.M) return {html:`<div class="row"><div><div class="r-name">Other markets</div><div class="r-sub">${esc(g.names.join(", "))}</div></div><div></div></div>`,o:9e15};
+    const s=marketState(g.M);
+    const pill={open:'<span class="pill buy">OPEN</span>',pre:'<span class="pill wait">PRE-MARKET</span>',post:'<span class="pill wait">AFTER HOURS</span>',closed:'<span class="pill mkt">CLOSED</span>'}[s.st];
+    const hint=s.st==="closed"&&s.opensIn!=null?` · opens in ${Math.floor(s.opensIn/3600000)} h ${Math.round(s.opensIn%3600000/60000)} min`:(s.weekend?" · weekend":"");
+    return {o:wallToMs(g.M.tz,g.M.open),html:`<div class="row mrow"><div style="min-width:0"><div class="r-name">${esc(g.M.name)} <span class="r-sub" style="display:inline">${esc(g.M.ex)}</span></div>
+      <div class="r-sub"><b class="num" style="color:var(--ink)">${s.hours}</b>${s.ext?" · "+s.ext:""}${hint}</div>
+      <div class="r-sub">${esc(g.names.join(" · "))}</div></div><div>${pill}</div></div>`};
+  }).sort((a,b)=>a.o-b.o).map(r=>r.html).join("");
+  return `<section class="sec"><div class="sec-h"><h2>Market hours</h2><span>German time, today</span></div><div class="list">${rows}</div>
+    <p class="foot" style="text-align:left;margin:0">Regular trading on each stock's home exchange, which is where the challenge prices come from. Public holidays not included.</p></section>`;
+}
+
 /* ---------- views ---------- */
 function renderNotice(C){
   const pend=C.now.positions.filter(p=>p.pending>0);
@@ -524,12 +585,16 @@ function renderOverview(C){
     const w=p.value/tot, pend=p.pending>0;
     const r = p.cost>0? p.unreal/p.cost : 0;
     const L=livePx()[p.ticker];
-    const day = L && L.prev>0 ? L.p/L.prev-1 : null;
-    const dayLbl = L && L.d===C.td ? "today" : (L ? fmtDate(L.d) : "");
+    // regular session: change vs previous close; before the open: 0.00% today
+    const day = L ? (L.d===C.td && L.prev>0 ? L.p/L.prev-1 : 0) : null;
+    const dayLbl = "today";
+    // US extended hours: pre-market vs yesterday's close, after hours vs today's close
+    const X = L && L.ext && L.ext.base>0 ? L.ext : null;
+    const ext = X ? `<span class="num ${cls(X.p/X.base-1)}">${fmtPct(X.p/X.base-1)} ${X.k==="pre"?"pre-market":"after hours"}</span>` : "";
     const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
       <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
-        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}`}${p.est?'<span class="pill wait">EST. FILL</span>':""}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&!(X&&X.k==="pre")?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${p.est?'<span class="pill wait">EST. FILL</span>':""}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
         <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
       <div class="wbar" title="${n2.format(w*100)}% of portfolio"><i class="${w>0.2?"over":""}" style="width:${Math.min(100,w/0.25*100)}%"></i><u style="left:80%"></u></div>
@@ -547,7 +612,8 @@ function renderOverview(C){
   <section class="sec">
     <div class="sec-h"><h2>Positions</h2><span>${ps.length} name${ps.length===1?"":"s"} · bar = weight, line = 20% cap</span></div>
     <div class="list">${rows}${cashRow}</div>
-  </section>`;
+  </section>
+  ${renderMarkets(C)}`;
   document.querySelectorAll("[data-pos]").forEach(b=>b.onclick=()=>openPosition(b.dataset.pos,C));
 }
 
@@ -730,7 +796,8 @@ function openPosition(tk,C){
     document.querySelectorAll("#sRanges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.stockRange)));
     const s=stockSeries(tk), box=$("#sChart");
     const paint=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
-      $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label); };
+      const X=v==null&&L&&L.ext&&L.ext.base>0?L.ext:null;
+      $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label)+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
     if(s.pts.length<2){
       $("#sBig").innerHTML=p.px?esc(fmtLocal(p.px,p.ccy)):"–"; $("#sChg").innerHTML="";
       box.innerHTML=`<div class="chart-empty">${S.stockRange==="1d"||S.stockRange==="1w"?"Intraday prices arrive with the next price update.":"Price history appears once the price feed has data for "+esc(tk)+"."}</div>`;
