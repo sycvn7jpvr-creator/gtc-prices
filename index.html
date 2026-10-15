@@ -207,7 +207,29 @@ label.f .hint{font-weight:400;font-size:12px}
 .pxrow input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;text-align:right}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:30;font-size:14px}
 .foot{font-size:12px;color:var(--muted);text-align:center}
-@media (prefers-reduced-motion:no-preference){.sheet{animation:rise .18s ease-out}@keyframes rise{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{animation:rise .22s cubic-bezier(.2,.8,.2,1)}
+  .veil{animation:veilIn .2s ease-out}
+  .veil.closing{animation:veilOut .18s ease-in forwards}
+  .veil.closing .sheet{animation:sink .18s ease-in forwards}
+  #view.enter{animation:viewIn .22s ease-out}
+  .r-val.flash-up{animation:flashUp 1.4s ease-out}
+  .r-val.flash-down{animation:flashDown 1.4s ease-out}
+  .big.glow-up{animation:glowUp 1.2s ease-out}
+  .big.glow-down{animation:glowDown 1.2s ease-out}
+  svg.drawing circle{animation:dotIn .3s .45s both}
+  @keyframes rise{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+  @keyframes sink{to{transform:translateY(60px);opacity:0}}
+  @keyframes veilIn{from{background:rgba(10,12,16,0)}}
+  @keyframes veilOut{to{background:rgba(10,12,16,0)}}
+  @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes flashUp{0%,20%{background:var(--up-soft)}100%{background:transparent}}
+  @keyframes flashDown{0%,20%{background:var(--down-soft)}100%{background:transparent}}
+  @keyframes glowUp{0%,25%{color:var(--up)}100%{color:var(--ink)}}
+  @keyframes glowDown{0%,25%{color:var(--down)}100%{color:var(--ink)}}
+  @keyframes dotIn{from{opacity:0}to{opacity:1}}
+}
+.r-val{border-radius:6px;padding:0 4px;margin-right:-4px}
 </style>
 
 <div class="wrap">
@@ -268,6 +290,10 @@ const S = {
   market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:false
 };
 try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
+
+/* ---------- motion ---------- */
+const RM=()=>!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+function retrigger(el,cls){ if(!el||RM()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -475,7 +501,7 @@ function lineChart(box,pts,base,opts){
         <text x="${W-4}" y="${ty}" text-anchor="end" font-size="11" font-weight="700" fill="${l.color}" font-family="IBM Plex Mono, monospace">${esc(l.label)}</text>`; }
       const up=l.v>hi;  // off-chart: small marker pinned to the edge, chart scale untouched
       return `<text x="${W-4}" y="${up?11:H-3}" text-anchor="end" font-size="11" font-weight="700" fill="${l.color}" font-family="IBM Plex Mono, monospace">${up?"▲":"▼"} ${esc(l.label)}</text>`; }).join("")}
-    <path d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path class="main" d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${marks.map(m=>`<circle cx="${X(m.x).toFixed(1)}" cy="${Y(m.v).toFixed(1)}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`).join("")}
     <circle cx="${X(pts[pts.length-1].x).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="4" fill="${col}"/>
     <g class="cur" visibility="hidden"><line class="cl" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1"/><circle class="cc" r="5" fill="${col}" stroke="var(--surface)" stroke-width="2"/></g>
@@ -483,6 +509,10 @@ function lineChart(box,pts,base,opts){
     <text class="selt" y="13" text-anchor="middle" font-size="12" font-weight="700" font-family="IBM Plex Mono, monospace" visibility="hidden"></text>
     <rect class="hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/></svg>`;
   const svg=box.querySelector("svg"), cur=svg.querySelector(".cur"), hit=svg.querySelector(".hit");
+  if(opts.drawIn && !RM()){ const mp=svg.querySelector(".main");
+    try{ const L=mp.getTotalLength(); mp.style.strokeDasharray=L; mp.style.strokeDashoffset=L; mp.getBoundingClientRect();
+      mp.style.transition="stroke-dashoffset .6s cubic-bezier(.4,0,.2,1)"; mp.style.strokeDashoffset="0";
+      setTimeout(()=>{ mp.style.strokeDasharray=""; mp.style.transition=""; },700); svg.classList.add("drawing"); }catch(e){} }
   const sel=svg.querySelector(".sel"), c2=svg.querySelector(".c2"), selT=svg.querySelector(".selt");
   const nearest=e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)*(W/r.width);
     let b=pts[0],bd=1e9; for(const p of pts){ const d=Math.abs(X(p.x)-x); if(d<bd){bd=d;b=p;} } return b; };
@@ -598,14 +628,25 @@ function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   const arrow=br>0?"▲":br<0?"▼":"";  /* same form as the portfolio line above: arrow + % first, then what it is */
   el.innerHTML=`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`;
 }
+let tween=null;
 function paintHero(v,label,x){
   const h=heroState; if(!h) return;
-  const val=v==null?h.tot:v;
+  if(v!=null) tween=null;  // finger on the chart wins
+  const val=v==null?(tween?tween.cur:h.tot):v;
   $("#total").innerHTML=bigMoney(val);
   $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x));
   const P=h.pts; if(P&&P.length) paintBm({x:P[0].x,v:h.base}, v==null?P[P.length-1]:{x,v});
 }
 function renderHero(C,R){
+  const prev=heroState&&heroState.tot, nt=C.now.total;
+  if(prev!=null && Math.abs(nt-prev)>=0.5 && !RM()){
+    const t0=performance.now(), D=700, from=tween?tween.cur:prev;
+    tween={cur:from};
+    const step=now=>{ if(!tween) return; const k=Math.min(1,(now-t0)/D), e=1-Math.pow(1-k,3);
+      tween.cur=from+(nt-from)*e; paintHero(); if(k<1) requestAnimationFrame(step); else { tween=null; paintHero(); } };
+    requestAnimationFrame(step);
+    retrigger($("#total"), nt>prev?"glow-up":"glow-down");
+  }
   heroState={tot:C.now.total,base:R.base,label:R.label,bench:R.pts.length>1?benchSeries(R):null,pts:R.pts};
   paintHero();
   const up=S.market.latest&&S.market.latest.updated;
@@ -631,7 +672,7 @@ function benchSeries(R){
 }
 
 /* ---------- main chart ---------- */
-let chartRangeNow=null;
+let chartRangeNow=null, lastDrawKey=null;
 function toggleBench(on){
   const from=chartRangeNow; S.showBench=on;
   const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -657,7 +698,8 @@ function renderChart(C,R,anim){
   $("#legend").hidden=!(bench.length>1);
   const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
-  chartRangeNow=lineChart(area,R.pts,R.base,{bench,range:anim&&anim.range,benchOpacity:anim?anim.op:1,pctAxis:S.showBench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
+  const dk=S.range; const drawIn=!anim && dk!==lastDrawKey; lastDrawKey=dk;
+  chartRangeNow=lineChart(area,R.pts,R.base,{drawIn,bench,range:anim&&anim.range,benchOpacity:anim?anim.op:1,pctAxis:S.showBench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
     onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); paintBm(a,b); }});
 }
 
@@ -827,6 +869,13 @@ function miniGauge(p){
     <div class="mg-bar">${entry?`<i class="mg-entry" style="left:${pos(entry)}%"></i>`:""}<i class="mg-dot" style="left:${pos(px)}%"></i></div>
     <div class="mg-lab num"><span class="down">SL ${fmtPct(ds)}</span><span class="up">TP ${fmtPct(dt)}</span></div></div>`;
 }
+let prevVals=null;
+function flashRows(ps){
+  const now={}; ps.forEach(p=>now[p.ticker]=p.value);
+  if(prevVals) document.querySelectorAll("[data-pos]").forEach(r=>{ const tk=r.dataset.pos, a=prevVals[tk], b=now[tk];
+    if(a!=null&&b!=null&&Math.abs(b-a)>=1) retrigger(r.querySelector(".r-val"), b>a?"flash-up":"flash-down"); });
+  prevVals=now;
+}
 function renderOverview(C){
   const n=C.now, tot=n.total||1;
   const ps=n.positions.slice().sort((a,b)=>b.value-a.value);
@@ -867,6 +916,7 @@ function renderOverview(C){
   </section>
   ${renderMarkets(C)}`;
   document.querySelectorAll("[data-pos]").forEach(b=>b.onclick=()=>openPosition(b.dataset.pos,C));
+  flashRows(ps);
 }
 
 function renderTrades(C){
@@ -962,7 +1012,7 @@ function render(){
   if(S.tab==="trades") renderTrades(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
   $("#fab").hidden=!S.canWrite;
 }
-function setTab(t){ S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); }
+function setTab(t){ const changed=S.tab!==t; S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); if(changed) retrigger($("#view"),"enter"); }
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
 let rz; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) render(); },120); });
@@ -978,7 +1028,13 @@ function toast(msg){ const b=$("#toastBox"); b.innerHTML=`<div class="toast">${e
 let lockY=null;
 function lockScroll(){ if(lockY!==null) return; lockY=window.scrollY||0; const b=document.body.style; b.position="fixed"; b.top=(-lockY)+"px"; b.left="0"; b.right="0"; }
 function unlockScroll(){ if(lockY===null) return; const b=document.body.style; b.position=""; b.top=""; b.left=""; b.right=""; window.scrollTo(0,lockY); lockY=null; }
-function closeModal(){ $("#modal").innerHTML=""; document.removeEventListener("keydown",escClose); unlockScroll(); }
+function closeModal(){
+  document.removeEventListener("keydown",escClose);
+  const v=$("#veil");
+  const done=()=>{ if(v && $("#veil")!==v) return; $("#modal").innerHTML=""; unlockScroll(); };  /* a sheet opened meanwhile stays */
+  if(!v||RM()||v.classList.contains("closing")) return done();
+  v.classList.add("closing"); setTimeout(done,180);
+}
 function escClose(e){ if(e.key==="Escape") closeModal(); }
 function openModal(html){
   $("#modal").innerHTML=`<div class="veil" id="veil"><div class="sheet" role="dialog" aria-modal="true"><button type="button" class="x" id="xClose" aria-label="Close">✕</button>${html}</div></div>`;
@@ -1020,7 +1076,9 @@ function stockSeries(tk){
   return {pts,base:pts.length?pts[0].v:0,label,intraday:false};
 }
 
+let stockDrawKey=null;
 function openPosition(tk,C){
+  stockDrawKey=null;
   const p=C.now.positions.find(x=>x.ticker===tk); if(!p) return;
   const ts=sortedTrades().filter(t=>t.ticker===tk).reverse();
   const avg = p.shares>0 ? p.cost/p.shares : 0;
@@ -1075,7 +1133,8 @@ function openPosition(tk,C){
           <div class="g-bar"><i class="g-dot" style="left:${cp}%"></i>${entry?`<i class="g-entry" style="left:${pos(entry)}%" title="entry"></i>`:""}</div>
           <div class="g-ends num"><span class="down">SL ${esc(fmtLocal(LV.stop,p.ccy))} <b>${fmtPct(ds)}</b></span>${entry?`<span class="flat">entry ${esc(fmtLocal(entry,p.ccy))}</span>`:""}<span class="up">TP ${esc(fmtLocal(LV.target,p.ccy))} <b>${fmtPct(dt)}</b></span></div></div>`;
       } else li.innerHTML=`<div class="g-off">See how close the price is to your stop loss and take profit.</div>`; }
-    lineChart(box,s.pts,s.base,{h:180,markers:marks,levels,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
+    const dk2=tk+"|"+S.stockRange; const drawIn2=dk2!==stockDrawKey; stockDrawKey=dk2;
+    lineChart(box,s.pts,s.base,{h:180,drawIn:drawIn2,markers:marks,levels,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
       onRange:(a,b)=>{ $("#sBig").innerHTML=esc(fmtLocal(b.v,p.ccy)); $("#sChg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>fmtLocal(x,p.ccy)); }});
     $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
   };
