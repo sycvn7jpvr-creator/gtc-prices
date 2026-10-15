@@ -2,7 +2,7 @@
 
 Writes data/news.json: {"updated": iso, "items": {bbg_ticker: [{title, url, source, ts}, ...]}}
 Only headline, source, time and link are stored; the article itself stays on the publisher's site.
-Runs at most once an hour (skips if data/news.json is younger than 50 minutes).
+Runs with every price run (every 6 minutes).
 """
 import json
 import re
@@ -87,14 +87,14 @@ def google_news(name):
     return items
 
 
+JUNK = re.compile(r"stock price,? (news|quote)|quote & history|share price (&|and) news|stock quote", re.I)
+
+
 def norm(t):
     return re.sub(r"[^a-z0-9]", "", t.lower())[:60]
 
 
 def main():
-    if fresh_enough():
-        print("news: fresh, skipped")
-        return
     cutoff = time.time() - MAX_AGE_DAYS * 86400
     out = {"updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "updated_ts": int(time.time()), "items": {}}
     for bbg, name in names_by_ticker().items():
@@ -110,7 +110,7 @@ def main():
         seen, keep = set(), []
         for n in sorted(found, key=lambda x: -x["ts"]):
             k = norm(n["title"])
-            if n["ts"] < cutoff or k in seen:
+            if n["ts"] < cutoff or k in seen or JUNK.search(n["title"]):
                 continue
             seen.add(k)
             keep.append(n)
