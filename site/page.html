@@ -59,7 +59,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* chart */
 .chart{position:relative;display:flex;flex-direction:column;gap:10px}
-.chart svg{display:block;width:100%;height:190px;touch-action:pan-y}
+.chart svg{display:block;width:100%;height:190px;touch-action:none;-webkit-user-select:none;user-select:none}
 .chart-empty{height:150px;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:16px}
 .ranges{display:flex;gap:4px;flex-wrap:wrap}
 .ranges button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px;color:var(--muted)}
@@ -186,7 +186,7 @@ a.row.news:hover{background:var(--sunk)}
 .stats b small{display:inline;font-size:12px;font-weight:500;color:var(--muted)}
 .stats b.two{white-space:normal;line-height:1.3}
 .x{position:sticky;top:0;align-self:flex-end;margin-bottom:-50px;z-index:3;width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:16px;line-height:36px;padding:0;flex:none}
-#sChart svg{display:block;width:100%;touch-action:pan-y}
+#sChart svg{display:block;width:100%;touch-action:none;-webkit-user-select:none;user-select:none}
 .sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 @media (min-width:640px){.veil{align-items:center}.sheet{border-radius:20px}}
@@ -293,6 +293,14 @@ try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localSt
 
 /* ---------- motion ---------- */
 const RM=()=>!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+function makeSmoother(draw){
+  let cur=null, tgt=null, meta=null, raf=0;
+  const tick=()=>{ raf=0; if(cur==null) return; const d=tgt-cur;
+    if(Math.abs(d)<=Math.max(0.005,Math.abs(tgt)*1e-6)){ cur=tgt; draw(cur,meta); return; }
+    cur+=d*0.28; draw(cur,meta); raf=requestAnimationFrame(tick); };
+  return { set(v,m){ tgt=v; meta=m; if(cur==null||RM()){ cur=v; draw(cur,meta); return; } if(!raf) raf=requestAnimationFrame(tick); },
+           reset(){ cur=null; if(raf) cancelAnimationFrame(raf); raf=0; } };
+}
 function retrigger(el,cls){ if(!el||RM()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
 /* ---------- formatting ---------- */
@@ -634,13 +642,18 @@ function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   el.innerHTML=`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`;
 }
 let tween=null;
+const heroSm=makeSmoother((val,m)=>drawHero(val,m.label,m.x,m.v));
 function paintHero(v,label,x){
+  if(!heroState) return;
+  if(v!=null){ tween=null; heroSm.set(v,{label,x,v}); return; }  // finger on the chart: figures glide
+  heroSm.reset(); drawHero(null);
+}
+function drawHero(v,label,x,vPt){
   const h=heroState; if(!h) return;
-  if(v!=null) tween=null;  // finger on the chart wins
   const val=v==null?(tween?tween.cur:h.tot):v;
   $("#total").innerHTML=bigMoney(val);
   $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x));
-  const P=h.pts; if(P&&P.length) paintBm({x:P[0].x,v:h.base}, v==null?P[P.length-1]:{x,v});
+  const P=h.pts; if(P&&P.length) paintBm({x:P[0].x,v:h.base}, v==null?P[P.length-1]:{x,v:vPt==null?v:vPt});
 }
 function renderHero(C,R){
   const prev=heroState&&heroState.tot, nt=C.now.total;
@@ -1058,7 +1071,8 @@ function dbErr(e){
 }
 
 /* ---------- position detail ---------- */
-const fmtLocal=(v,ccy)=>new Intl.NumberFormat("en-US",{style:"currency",currency:ccy||"USD",minimumFractionDigits:v>=1000?0:2,maximumFractionDigits:v>=1000?0:(v>=10?2:3)}).format(v);
+const fmtLocal=(v,ccy)=>{ const a=Math.abs(v), d=a>=1000?0:(a>=1||a===0?2:4);  /* fixed decimals so gliding figures don't flicker */
+  return new Intl.NumberFormat("en-US",{style:"currency",currency:ccy||"USD",minimumFractionDigits:d,maximumFractionDigits:d}).format(v); };
 function stockSeries(tk){
   const L=livePx()[tk], r=S.stockRange;
   if(r==="1d"){
@@ -1114,7 +1128,9 @@ function openPosition(tk,C){
   const draw=()=>{
     document.querySelectorAll("#sRanges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.stockRange)));
     const s=stockSeries(tk), box=$("#sChart");
-    const paint=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
+    const sm=makeSmoother((val,m)=>paintNow(val,m));
+    const paint=(v,label)=>{ if(v!=null){ sm.set(v,label); return; } sm.reset(); paintNow(null); };
+    const paintNow=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
       const X=L&&L.ext&&L.ext.base>0?L.ext:null;
       $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label,x=>fmtLocal(x,p.ccy))+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
     if(s.pts.length<2){
