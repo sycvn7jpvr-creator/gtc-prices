@@ -106,8 +106,16 @@ button.row:hover{background:var(--sunk)}
 .lvtog input:checked+.sw{background:var(--accent)}
 .lvtog input:checked+.sw::after{transform:translateX(16px)}
 .lvtog input:focus-visible+.sw{outline:2px solid var(--accent);outline-offset:2px}
-.lvrow{display:flex;align-items:center;gap:14px;min-height:28px}
-.lvinfo{display:flex;flex-wrap:nowrap;gap:12px;align-items:center;font-size:13px;font-weight:600;white-space:nowrap;min-width:0;overflow:hidden}
+.lvbox{display:flex;flex-direction:column;gap:10px}
+.lvinfo{min-height:62px;font-size:12px;font-weight:600}
+.g-off{color:var(--muted);font-weight:500;font-size:13px;padding-top:4px}
+.gauge{position:relative;padding-top:20px}
+.g-now{position:absolute;top:0;font-size:12px;font-weight:700;white-space:nowrap;color:var(--ink)}
+.g-bar{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--down) 0%,var(--down-soft) 30%,var(--sunk) 50%,var(--up-soft) 70%,var(--up) 100%)}
+.g-dot{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--ink);border:3px solid var(--surface);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.g-entry{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--muted);transform:translateX(-50%);border-radius:1px}
+.g-ends{display:flex;justify-content:space-between;gap:8px;margin-top:8px;white-space:nowrap}
+.g-ends b{font-weight:700}
 .lvinfo b{font-weight:700}
 a.row.news{display:block;color:inherit;text-decoration:none}
 .nf{display:flex;gap:8px;align-items:stretch}
@@ -926,7 +934,7 @@ function openPosition(tk,C){
     <div class="ranges" id="sRanges"><button data-r="1d">1D</button><button data-r="1w">1W</button><button data-r="1m">1M</button><button data-r="ytd">YTD</button><button data-r="1y">1Y</button><button data-r="max">Max</button></div>
     <div id="sChart"></div>
     <div class="fresh" id="sNote"></div>
-    ${S.levels[tk]?`<div class="lvrow"><label class="lvtog" for="lvT"><input type="checkbox" id="lvT" ${S.showLevels?"checked":""}><span class="sw" aria-hidden="true"></span><span>SL / TP</span></label>
+    ${S.levels[tk]?`<div class="lvbox"><label class="lvtog" for="lvT"><input type="checkbox" id="lvT" ${S.showLevels?"checked":""}><span class="sw" aria-hidden="true"></span><span>Stop loss &amp; take profit</span></label>
     <div class="lvinfo" id="lvInfo"></div></div>`:""}
     <div class="eyebrow">Your position</div>
     <div class="stats num" style="box-shadow:none;border:1px solid var(--line)">
@@ -961,9 +969,15 @@ function openPosition(tk,C){
     const li=$("#lvInfo");
     if(li){ if(LV&&S.showLevels){
         const px=(L&&L.p)||cur, ds=LV.stop/px-1, dt=LV.target/px-1;
-        const state= px<=LV.stop?'<span class="pill sell">STOP HIT</span>':px>=LV.target?'<span class="pill buy">TARGET HIT</span>':"";
-        li.innerHTML=`${state}<span class="down">SL <b>${fmtPct(ds)}</b></span><span class="up">TP <b>${fmtPct(dt)}</b></span>`;
-      } else li.innerHTML=`<span class="flat">show stop loss &amp; take profit</span>`; }
+        const span=LV.target-LV.stop, pos=v=>Math.max(0,Math.min(100,(v-LV.stop)/span*100));
+        const fills=effTrades().filter(t=>t.ticker===tk&&t.side==="BUY"&&t.price>0), entry=fills.length?fills.reduce((a,t)=>a+t.price*(+t.usd||0),0)/fills.reduce((a,t)=>a+(+t.usd||0),0):null;
+        const hit=px<=LV.stop?'<span class="pill sell">STOP HIT</span>':px>=LV.target?'<span class="pill buy">TARGET HIT</span>':"";
+        const cp=pos(px), al=cp<18?"left":cp>82?"right":"center";
+        li.innerHTML=`<div class="gauge">
+          <div class="g-now num" style="left:${cp}%;text-align:${al};transform:translateX(${al==="left"?"-6px":al==="right"?"calc(-100% + 6px)":"-50%"})">${hit||esc(fmtLocal(px,p.ccy))}</div>
+          <div class="g-bar"><i class="g-dot" style="left:${cp}%"></i>${entry?`<i class="g-entry" style="left:${pos(entry)}%" title="entry"></i>`:""}</div>
+          <div class="g-ends num"><span class="down">SL ${esc(fmtLocal(LV.stop,p.ccy))} <b>${fmtPct(ds)}</b></span>${entry?`<span class="flat">entry ${esc(fmtLocal(entry,p.ccy))}</span>`:""}<span class="up">TP ${esc(fmtLocal(LV.target,p.ccy))} <b>${fmtPct(dt)}</b></span></div></div>`;
+      } else li.innerHTML=`<div class="g-off">See how close the price is to your stop loss and take profit.</div>`; }
     lineChart(box,s.pts,s.base,{h:180,markers:marks,levels,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
       onRange:(a,b)=>{ $("#sBig").innerHTML=esc(fmtLocal(b.v,p.ccy)); $("#sChg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>fmtLocal(x,p.ccy)); }});
     $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
