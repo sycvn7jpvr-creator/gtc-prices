@@ -259,7 +259,7 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:true
+  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:false
 };
 try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
 
@@ -575,7 +575,7 @@ let heroState=null;
 function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
 function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   const h=heroState, B=h&&h.bench, el=$("#bmLine"); if(!el) return;
-  if(!S.showBench||!B||B.length<2||!a||!b){ el.innerHTML=""; return; }
+  if(!B||B.length<2||!a||!b){ el.innerHTML=""; return; }  /* WLS % always shown; the switch only controls the chart line */
   const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
   const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
   const arrow=br>0?"▲":br<0?"▼":"";  /* same form as the portfolio line above: arrow + % first, then what it is */
@@ -622,7 +622,7 @@ function renderChart(C,R){
     $("#legend").hidden=true; return;
   }
   const benchAll=benchSeries(R), bench=S.showBench?benchAll:[];
-  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; render(); /* on by default every time the site opens */ }; }
+  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; render(); /* chart line off by default every time the site opens */ }; }
   $("#legend").hidden=!(bench.length>1);
   const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
