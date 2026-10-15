@@ -6,7 +6,7 @@
 <style>
 /* Layout: one phone-width column; a big-number hero and line chart up top, then positions, trades and prices behind a sticky tab bar. Terminal amber marks tickers. */
 :root{
-  --bg:#f4f5f8; --surface:#ffffff; --sunk:#eceef3; --ink:#11161f; --muted:#5b6474; --line:#dfe2e9;
+  --bg:#f4f5f8; --surface:#ffffff; --sunk:#eceef3; --panel:#f6f7fa; --ink:#11161f; --muted:#5b6474; --line:#dfe2e9;
   --accent:#c77700; --accent-soft:#fbefd9; --up:#0e8a55; --up-soft:#e2f4ea; --down:#cf3434; --down-soft:#fbe6e6;
   --shadow:0 1px 2px rgba(17,22,31,.06),0 8px 24px rgba(17,22,31,.06);
   --alert-bg:#d92d20; --alert-fg:#ffffff; --bench:#4f6d9a;
@@ -15,11 +15,11 @@
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
+  --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --panel:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
   --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; --bench:#8aa4cc; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
+  --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --panel:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
   --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; --bench:#8aa4cc; color-scheme:dark}
 *{box-sizing:border-box}
@@ -99,13 +99,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
 .mg{grid-column:1/-1;margin-top:8px;display:grid;font-size:11px;grid-template-columns:6.2em minmax(0,1fr) 6.2em;align-items:center;gap:10px;
-  background:var(--sunk);border-radius:10px;padding:7px 10px;transition:background .3s}
+  background:var(--panel);border-radius:10px;padding:7px 10px;transition:background .3s}
 .mg-none{display:none}
 .mg.near-sl{background:var(--down-soft)}
 .mg.near-tp{background:var(--up-soft)}
 .mg-l{font-weight:600;white-space:nowrap}
 .mg-l.up{text-align:right}
-.mg-bar{position:relative;height:6px;border-radius:3px;background:var(--surface)}
+.mg-bar{position:relative;height:6px;border-radius:3px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
 .mg-bar::before{content:"";position:absolute;inset:0;border-radius:inherit;opacity:.7;background:linear-gradient(90deg,var(--down) 0%,transparent 42%,transparent 58%,var(--up) 100%)}
 .mg-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translate(-50%,-50%);box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .mg-entry{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--muted);transform:translateX(-50%)}
