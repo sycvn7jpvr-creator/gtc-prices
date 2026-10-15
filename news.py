@@ -88,6 +88,8 @@ def google_news(name):
 
 
 JUNK = re.compile(r"stock price,? (news|quote)|quote & history|share price (&|and) news|stock quote", re.I)
+# sources that match a company name but are never about the company (e.g. football at "Bravida Arena")
+BLOCKED_SOURCES = {"transfermarkt"}
 
 
 def norm(t):
@@ -110,7 +112,7 @@ def main():
         seen, keep = set(), []
         for n in sorted(found, key=lambda x: -x["ts"]):
             k = norm(n["title"])
-            if n["ts"] < cutoff or k in seen or JUNK.search(n["title"]):
+            if n["ts"] < cutoff or k in seen or JUNK.search(n["title"]) or n["source"].strip().lower() in BLOCKED_SOURCES:
                 continue
             seen.add(k)
             keep.append(n)
