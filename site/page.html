@@ -9,6 +9,7 @@
   --bg:#f4f5f8; --surface:#ffffff; --sunk:#eceef3; --ink:#11161f; --muted:#5b6474; --line:#dfe2e9;
   --accent:#c77700; --accent-soft:#fbefd9; --up:#0e8a55; --up-soft:#e2f4ea; --down:#cf3434; --down-soft:#fbe6e6;
   --shadow:0 1px 2px rgba(17,22,31,.06),0 8px 24px rgba(17,22,31,.06);
+  --alert-bg:#d92d20; --alert-fg:#ffffff;
   --f-display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
   --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
@@ -16,11 +17,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
   --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}}
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
   --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
@@ -97,6 +98,19 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
+.pill.hit{background:var(--alert-bg);color:var(--alert-fg)}
+.alertbox{background:var(--alert-bg);color:var(--alert-fg);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(217,45,32,.35)}
+.al-h{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:17px}
+.al-i{flex:none;width:24px;height:24px;border-radius:50%;background:var(--alert-fg);color:var(--alert-bg);display:grid;place-items:center;font-weight:800;font-size:15px}
+.al-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:baseline;text-align:left;border:0;border-radius:10px;padding:9px 10px;background:rgba(255,255,255,.16);color:inherit}
+.al-row:hover{background:rgba(255,255,255,.26)}
+.al-k{font-size:11px;font-weight:800;letter-spacing:.06em}
+.al-n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-d{grid-column:2;font-size:13px;opacity:.92}
+.al-f{font-size:12px;opacity:.9}
+.tabs button.alert{color:var(--alert-bg)}
+.tabs button.alert[aria-selected="true"]{color:var(--alert-bg)}
+.bang{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--alert-bg);color:var(--alert-fg);font-size:12px;font-weight:800;margin-left:4px;vertical-align:1px}
 .chart-foot{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
 .chart-foot .legend{margin:0}
 .lvtog{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;cursor:pointer;user-select:none;width:max-content}
@@ -219,6 +233,8 @@ label.f .hint{font-weight:400;font-size:12px}
     </div>
     <div class="fresh mouse-only">Tip: click and drag across the chart to see the change between two points.</div>
   </section>
+
+  <div id="alerts"></div>
 
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
@@ -718,6 +734,43 @@ function renderNews(C){
   q.onkeydown=e=>{ if(e.key==="Escape") close(); if(e.key==="Enter"){ const f=items().find(b=>!b.hidden); if(f) pick(f.dataset.nf); } };
 }
 
+/* ---------- stop loss / take profit alerts ---------- */
+/* first time a position's price touched its SL or TP after the fill; shown for 24 h from that moment */
+function levelHits(C){
+  const out=[], now=Date.now()/1000;
+  for(const p of C.now.positions){
+    const LV=S.levels[p.ticker], L=livePx()[p.ticker];
+    if(!LV||!(p.shares>0)||!L) continue;
+    const fill=Math.min(...effTrades().filter(t=>t.ticker===p.ticker&&t.side==="BUY"&&t.price>0).map(t=>t.effTs||dayNum(t.effDate)*86400));
+    const bars=[...(L.w||[]),...(L.i||[])];
+    if(L.t&&L.p) bars.push([Math.floor(Date.parse(L.t)/1000),L.p]);
+    bars.sort((a,b)=>a[0]-b[0]);
+    let hit=null;
+    for(const [t,v] of bars){
+      if(!(t>=fill)) continue;
+      if(LV.stop>0&&v<=LV.stop){ hit={kind:"SL",ts:t,px:v,lvl:LV.stop}; break; }
+      if(LV.target>0&&v>=LV.target){ hit={kind:"TP",ts:t,px:v,lvl:LV.target}; break; }
+    }
+    if(hit && now-hit.ts<86400) out.push(Object.assign(hit,{p}));
+  }
+  return out.sort((a,b)=>b.ts-a.ts);
+}
+function renderAlerts(C){
+  const hits=levelHits(C); S.hits=Object.fromEntries(hits.map(h=>[h.p.ticker,h.kind]));
+  const tab=document.querySelector('.tabs [data-tab="overview"]');
+  if(tab){ tab.classList.toggle("alert",hits.length>0); tab.innerHTML=hits.length?'Positions <b class="bang" aria-label="alert">!</b>':"Positions"; }
+  const box=$("#alerts"); if(!box) return;
+  if(!hits.length){ box.innerHTML=""; return; }
+  const nSL=hits.filter(h=>h.kind==="SL").length, nTP=hits.length-nSL;
+  const head=[nSL?`Stop loss hit for ${nSL} stock${nSL>1?"s":""}`:"",nTP?`Take profit hit for ${nTP} stock${nTP>1?"s":""}`:""].filter(Boolean).join(" · ");
+  box.innerHTML=`<section class="alertbox" role="alert"><div class="al-h"><span class="al-i" aria-hidden="true">!</span>${head}</div>
+    ${hits.map(h=>`<button type="button" class="al-row" data-hit="${esc(h.p.ticker)}"><span class="al-k">${h.kind==="SL"?"STOP LOSS":"TAKE PROFIT"}</span>
+      <span class="al-n">${esc(h.p.name||h.p.ticker)}</span>
+      <span class="al-d num">${nPx(h.px)} ${h.kind==="SL"?"≤":"≥"} ${nPx(h.lvl)} ${esc(h.p.ccy)} · ${ago(h.ts)}</span></button>`).join("")}
+    <div class="al-f">Review the position and place the trade in TMSG. This alert clears 24 h after the level was hit.</div></section>`;
+  box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C));
+}
+
 /* ---------- views ---------- */
 function renderNotice(C){
   const pend=C.now.positions.filter(p=>p.pending>0);
@@ -749,7 +802,7 @@ function renderOverview(C){
     const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
       <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
-        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}${S.hits&&S.hits[p.ticker]?`<span class="pill hit">${S.hits[p.ticker]} HIT</span>`:""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
         <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
       <div class="wbar" title="${n2.format(w*100)}% of portfolio"><i class="${w>0.2?"over":""}" style="width:${Math.min(100,w/0.25*100)}%"></i><u style="left:80%"></u></div>
@@ -859,7 +912,7 @@ function render(){
   }
   if(!(S.got.trades&&S.got.prices)){ return; }
   const C=compute(); lastC=C;
-  const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderNotice(C);
+  const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderAlerts(C); renderNotice(C);
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===S.tab)));
   if(S.tab==="prices") S.tab="overview";
   if(S.tab==="trades") renderTrades(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
