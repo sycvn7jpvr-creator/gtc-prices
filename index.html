@@ -279,7 +279,7 @@ function effTrades(){
       const e=estimateFill(t);
       if(e) return Object.assign({},t,{price:e.price,fx:t.ccy==="USD"?1:e.fx,effDate:e.date,effTs:e.ts||null,est:true});
     }
-    return Object.assign({},t,{effDate:t.date});
+    return Object.assign({},t,{effDate:t.fillDate||t.date,effTs:t.fillTs||null});  // real fill: counts from its fill time
   });
   return EFF;
 }
