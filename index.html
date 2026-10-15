@@ -243,9 +243,9 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:false, showBench:false
+  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:false
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; S.showLevels=localStorage.getItem("gtc.lv")==="1"; S.showBench=localStorage.getItem("gtc.bm")==="1"; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; S.showBench=localStorage.getItem("gtc.bm")==="1"; }catch(e){}
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -983,7 +983,7 @@ function openPosition(tk,C){
     $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
   };
   document.querySelectorAll("#sRanges button").forEach(b=>b.onclick=()=>{ S.stockRange=b.dataset.r; try{localStorage.setItem("gtc.srange",S.stockRange);}catch(e){} draw(); });
-  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked; try{localStorage.setItem("gtc.lv",lt.checked?"1":"0");}catch(e){} draw(); };
+  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked; draw();  // on by default every time the site opens };
   draw();
 }
 
