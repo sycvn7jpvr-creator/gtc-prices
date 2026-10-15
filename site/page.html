@@ -198,7 +198,6 @@ label.f .hint{font-weight:400;font-size:12px}
     <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
     <button role="tab" data-tab="news" aria-selected="false">News</button>
     <button role="tab" data-tab="trades" aria-selected="false">Trades</button>
-    <button role="tab" data-tab="prices" aria-selected="false">Data</button>
   </nav>
 
   <div id="notice"></div>
@@ -809,7 +808,8 @@ function render(){
   const C=compute(); lastC=C;
   const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderNotice(C);
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===S.tab)));
-  if(S.tab==="trades") renderTrades(C); else if(S.tab==="prices") renderPrices(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
+  if(S.tab==="prices") S.tab="overview";
+  if(S.tab==="trades") renderTrades(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
   $("#fab").hidden=!S.canWrite;
 }
 function setTab(t){ S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); }
