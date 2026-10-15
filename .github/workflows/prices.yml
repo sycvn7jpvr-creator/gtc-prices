@@ -1,7 +1,7 @@
 name: prices
 on:
   schedule:
-    - cron: "25,55 * * * *"   # every 30 min, around the clock
+    - cron: "*/10 * * * *"   # every 10 min, around the clock (Pages rebuilds ~6x/hour)
   workflow_dispatch:
 permissions:
   contents: write
