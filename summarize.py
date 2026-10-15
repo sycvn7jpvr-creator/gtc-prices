@@ -39,20 +39,20 @@ def load(p, default):
         return default
 
 
-ENDPOINTS = [  # (url, model) tried in order; the first that answers is used for the rest of the run
-    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4.1-mini"),
-    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4o-mini"),
-    ("https://models.inference.ai.azure.com/chat/completions", "gpt-4o-mini"),
+ENDPOINTS = [  # (url, model, accept) tried in order; the first that answers is used for the rest of the run
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4.1-mini", "application/vnd.github+json"),
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4o-mini", "application/vnd.github+json"),
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4.1-mini", "application/json"),
 ]
 _working = []
 
 
-def _post(url, model, prompt, token):
+def _post(url, model, accept, prompt, token):
     body = json.dumps({"model": model, "temperature": 0.2, "max_tokens": 220,
                        "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(url, data=body, method="POST", headers={
-        "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28"})
+        "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": accept,
+        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "gtc-prices-bot"})
     try:
         with urllib.request.urlopen(req, timeout=40) as r:
             raw, code = r.read(), r.status
@@ -61,7 +61,7 @@ def _post(url, model, prompt, token):
     try:
         return json.loads(raw)["choices"][0]["message"]["content"].strip()
     except Exception:
-        raise RuntimeError(f"{url.split('/')[2]} {model}: HTTP {code}: {raw[:160]!r}")
+        raise RuntimeError(f"{model} [{accept}]: HTTP {code}: {raw[:160]!r}")
 
 
 def call_model(prompt):
@@ -69,14 +69,32 @@ def call_model(prompt):
     if not token:
         raise RuntimeError("GITHUB_TOKEN missing")
     errors = []
-    for url, model in (_working or ENDPOINTS):
+    for url, model, accept in (_working or ENDPOINTS):
         try:
-            text = _post(url, model, prompt, token)
-            _working[:] = [(url, model)]
+            text = _post(url, model, accept, prompt, token)
+            _working[:] = [(url, model, accept)]
             return text, model
         except Exception as e:
             errors.append(str(e))
     raise RuntimeError(" || ".join(errors)[:600])
+
+
+def probe_catalog():
+    try:
+        req = urllib.request.Request("https://models.github.ai/catalog/models", headers={
+            "Authorization": f"Bearer {os.environ.get('GITHUB_TOKEN', '')}", "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "gtc-prices-bot"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            raw = r.read()
+        try:
+            ids = [m.get("id") for m in json.loads(raw)][:15]
+            return f"catalog ok: {ids}"
+        except Exception:
+            return f"catalog HTTP {r.status}: {raw[:120]!r}"
+    except urllib.error.HTTPError as e:
+        return f"catalog HTTP {e.code}: {e.read()[:120]!r}"
+    except Exception as e:
+        return f"catalog {type(e).__name__}: {e}"[:200]
 
 
 def main():
@@ -88,6 +106,8 @@ def main():
     day = time.strftime("%Y-%m-%d", time.gmtime())
     if st.get("day") != day:
         st.update(day=day, calls=0)
+    if st.get("error") or not out["items"]:
+        st["catalog"] = probe_catalog()
     names = {t["ticker"]: t.get("name", t["ticker"]) for t in load(ROOT / "data" / "trades.json", [])}
     done = 0
     for bbg, items in (news.get("items") or {}).items():
