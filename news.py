@@ -19,7 +19,7 @@ from fetch_prices import to_yahoo
 
 ROOT = Path(__file__).parent
 OUT = ROOT / "data" / "news.json"
-MAX_AGE_DAYS = 14
+MAX_AGE_DAYS = 7
 PER_STOCK = 12
 
 
@@ -101,7 +101,7 @@ def yahoo_news(sym, dbg, name=""):
 def google_news(name):
     variants = short_names(name)  # articles usually use the short name: "Bravida", "SMA Solar", "Oerlikon"
     q = " OR ".join(f'"{v}"' for v in variants if v)
-    url = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": q + " when:14d", "hl": "en-US", "gl": "US", "ceid": "US:en"})
+    url = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": q + " when:7d", "hl": "en-US", "gl": "US", "ceid": "US:en"})
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (gtc-prices news bot)"})
     root = ET.fromstring(urllib.request.urlopen(req, timeout=20).read())
     items = []
