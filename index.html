@@ -93,6 +93,9 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
+a.row.news{display:block;color:inherit;text-decoration:none}
+a.row.news:hover{background:var(--sunk)}
+.news-t{white-space:normal;line-height:1.35;font-weight:600}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip{display:inline-flex;align-items:baseline;gap:6px;background:var(--accent-soft);color:var(--ink);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:600;max-width:100%}
 .chip i{font-style:normal;font-family:var(--f-mono);font-size:11px;font-weight:500;color:var(--accent);white-space:nowrap}
@@ -173,6 +176,7 @@ label.f .hint{font-weight:400;font-size:12px}
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
     <button role="tab" data-tab="trades" aria-selected="false">Trades</button>
+    <button role="tab" data-tab="news" aria-selected="false">News</button>
     <button role="tab" data-tab="prices" aria-selected="false">Data</button>
   </nav>
 
@@ -193,7 +197,7 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d"
+  market:{latest:null,history:null}, stockRange:"1d", news:null
 };
 try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; }catch(e){}
 
@@ -572,6 +576,25 @@ function renderMarkets(C){
     <p class="foot" style="text-align:left;margin:0">Regular trading on each stock's home exchange, which is where the challenge prices come from. Public holidays not included.</p></section>`;
 }
 
+/* ---------- news ---------- */
+const ago = ts => { const m=Math.max(0,Math.round((Date.now()/1000-ts)/60)); return m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"; };
+function newsRow(n,stock){
+  const fresh=Date.now()/1000-n.ts<86400;
+  return `<a class="row news" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer"><div style="min-width:0">
+    ${stock?`<div class="chips" style="margin:0 0 6px"><span class="chip">${esc(stock.name)}<i>${esc(stock.ticker)}</i></span></div>`:""}
+    <div class="r-name news-t">${esc(n.title)}</div>
+    <div class="r-sub">${fresh?'<span class="pill buy">NEW</span>':""}<span>${esc(n.source||"")}</span><span>· ${ago(n.ts)}</span></div></div></a>`;
+}
+function newsFor(tk){ return ((S.news&&S.news.items)||{})[tk]||[]; }
+function renderNews(C){
+  const all=[];
+  for(const p of C.now.positions) for(const n of newsFor(p.ticker)) all.push({n,stock:{name:p.name||p.ticker,ticker:p.ticker}});
+  all.sort((a,b)=>b.n.ts-a.n.ts);
+  $("#view").innerHTML=`<section class="sec"><div class="sec-h"><h2>News</h2><span>${S.news&&S.news.updated?"updated "+ago(Date.parse(S.news.updated)/1000):""}</span></div>
+    <div class="list">${all.length?all.slice(0,60).map(x=>newsRow(x.n,x.stock)).join(""):`<div class="empty">${S.news?"No headlines in the last 14 days.":"Headlines appear on the public site and refresh every hour."}</div>`}</div>
+    <p class="foot" style="text-align:left;margin:0">Headlines from Yahoo Finance and Google News for the stocks you hold, last 14 days. Tap one to read it on the publisher's site. Matching is by company name, so now and then an unrelated story slips in.</p></section>`;
+}
+
 /* ---------- views ---------- */
 function renderNotice(C){
   const pend=C.now.positions.filter(p=>p.pending>0);
@@ -715,7 +738,7 @@ function render(){
   const C=compute(); lastC=C;
   const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderNotice(C);
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===S.tab)));
-  if(S.tab==="trades") renderTrades(C); else if(S.tab==="prices") renderPrices(C); else renderOverview(C);
+  if(S.tab==="trades") renderTrades(C); else if(S.tab==="prices") renderPrices(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
   $("#fab").hidden=!S.canWrite;
 }
 function setTab(t){ S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); }
@@ -797,6 +820,7 @@ function openPosition(tk,C){
       <div><small>Avg cost (USD)</small><b>${avg?n2.format(avg):"–"}</b></div>
     </div>
     <div class="list" style="box-shadow:none;border:1px solid var(--line)">${ts.map(t=>`<div class="row"><div><div class="r-name"><span class="pill ${t.side==="BUY"?"buy":"sell"}">${t.side}</span> ${fmtDate(t.effDate||t.date)}</div><div class="r-sub num">${t.price>0?nPx(t.price)+" "+esc(t.ccy)+(t.est?" · estimated":""):"fill pending"}</div></div><div class="r-val num">${t.side==="BUY"?usd0.format(+t.usd||0):nSh(+t.shares||0)+" sh"}</div></div>`).join("")}</div>
+    ${newsFor(tk).length?`<div class="eyebrow">Latest news</div><div class="list" style="box-shadow:none;border:1px solid var(--line)">${newsFor(tk).slice(0,5).map(n=>newsRow(n)).join("")}</div>`:""}
     <div class="actions"><button class="btn" id="pClose">Close</button><span class="grow"></span>${S.canWrite&&p.shares>0?`<button class="btn primary" id="pSell">Sell…</button>`:""}</div>`);
   $("#pClose").onclick=closeModal;
   const sb=$("#pSell"); if(sb) sb.onclick=()=>openTrade(null,{side:"SELL",ticker:p.ticker,name:p.name,ccy:p.ccy});
@@ -1015,7 +1039,8 @@ async function staticBoot(){
   S.canWrite=false;
   const get=async f=>{ try{ const r=await fetch("data/"+f+"?t="+Date.now(),{cache:"no-store"}); return r.ok? await r.json():null; }catch(e){ return null; } };
   const load=async()=>{
-    const [tr,st,pr,la,hi]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json"].map(get));
+    const [tr,st,pr,la,hi,nw]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json","news.json"].map(get));
+    S.news=nw;
     if(!Array.isArray(tr)){ S.dbState="none"; render(); return; }
     S.trades=tr; S.prices=Array.isArray(pr)?pr:[]; if(st) S.settings=Object.assign({},S.settings,st);
     S.market={latest:la,history:hi}; S.got={trades:true,prices:true}; S.dbState="ok";
