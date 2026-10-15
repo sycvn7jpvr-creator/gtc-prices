@@ -59,8 +59,16 @@ def _yahoo_item(n):
     return {"title": title, "url": url, "source": src, "ts": int(ts)} if title and url and ts else None
 
 
-def yahoo_news(sym, dbg):
-    """Yahoo Finance headlines: the search endpoint (what finance.yahoo.com uses) plus Ticker.news as fallback."""
+def short_names(name):
+    variants = [v.strip(" )") for v in name.split(" (")]
+    short = [re.sub(r"\s+(Holdings?|Technologies|Technology|AG|SA|NV|plc|Inc\.?)$", "", v) for v in variants]
+    short = [re.sub(r"^OC\s+", "", v) for v in short]
+    return list(dict.fromkeys(v for v in variants + short if len(v) >= 4))
+
+
+def yahoo_news(sym, dbg, name=""):
+    """Yahoo Finance headlines: the search endpoint (what finance.yahoo.com uses) by symbol and by
+    company name, keeping name hits only when Yahoo tags them with the stock or the title names it."""
     raw = []
     try:
         res = yf.Search(sym, news_count=15, max_results=1)
@@ -68,6 +76,17 @@ def yahoo_news(sym, dbg):
         dbg["yahoo_search_raw"] = len(res.news or [])
     except Exception as e:
         dbg["yahoo_search_error"] = f"{type(e).__name__}: {e}"[:160]
+    names = short_names(name) if name else []
+    for q in names[-1:]:  # the short name, e.g. "SMA Solar"
+        try:
+            hits = yf.Search(q, news_count=20, max_results=1).news or []
+            ok = [n for n in hits if sym in (n.get("relatedTickers") or [])
+                  or any(v.lower() in (n.get("title") or "").lower() for v in names)]
+            dbg["yahoo_name_raw"] = len(hits)
+            dbg["yahoo_name_kept"] = len(ok)
+            raw += ok
+        except Exception as e:
+            dbg["yahoo_name_error"] = f"{type(e).__name__}: {e}"[:160]
     try:
         tn = yf.Ticker(sym).news or []
         dbg["yahoo_ticker_raw"] = len(tn)
@@ -80,11 +99,7 @@ def yahoo_news(sym, dbg):
 
 
 def google_news(name):
-    variants = [v.strip(" )") for v in name.split(" (")]
-    # articles usually use the short name: "Bravida", "SMA Solar", "Oerlikon"
-    short = [re.sub(r"\s+(Holdings?|Technologies|Technology|AG|SA|NV|plc|Inc\.?)$", "", v) for v in variants]
-    short = [re.sub(r"^OC\s+", "", v) for v in short]
-    variants = list(dict.fromkeys(v for v in variants + short if len(v) >= 4))
+    variants = short_names(name)  # articles usually use the short name: "Bravida", "SMA Solar", "Oerlikon"
     q = " OR ".join(f'"{v}"' for v in variants if v)
     url = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": q + " when:14d", "hl": "en-US", "gl": "US", "ceid": "US:en"})
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (gtc-prices news bot)"})
@@ -121,7 +136,7 @@ def main():
     for bbg, name in names_by_ticker().items():
         found, dbg = [], {}
         try:
-            y = yahoo_news(to_yahoo(bbg)[0], dbg)
+            y = yahoo_news(to_yahoo(bbg)[0], dbg, name)
             dbg["yahoo"] = len(y)
             found += y
         except Exception as e:
