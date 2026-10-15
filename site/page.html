@@ -511,7 +511,7 @@ function renderNotice(C){
   if(!S.trades.length || (!pend.length && !est)){ $("#notice").innerHTML=""; return; }
   const msg = pend.length
     ? `<b>${pend.length} fill price${pend.length>1?"s":""} missing.</b> Those positions count at cost until market data or the real TMSG fill comes in.`
-    : `<b>${est} fill price${est>1?"s are":" is"} estimated</b> from market data (US: close on order day, others: next open). Enter the real TMSG fills to make P&amp;L exact.`;
+    : `<b>${est} fill price${est>1?"s are":" is"} estimated</b> from market data (US: price at order time, others: next open). Enter the real TMSG fills to make P&amp;L exact.`;
   $("#notice").innerHTML=`<div class="note"><div>${msg}</div>${S.canWrite?`<button id="goFills">Enter</button>`:""}</div>`;
   const b=$("#goFills"); if(b) b.onclick=()=>{ setTab("trades"); };
 }

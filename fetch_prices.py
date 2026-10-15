@@ -78,7 +78,11 @@ def last_bar(sym, scale, with_month=False):
     t = raw.index[-1]
     out = {"p": r(raw["Close"].iloc[-1] / scale), "d": t.strftime("%Y-%m-%d"),
            "t": t.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"), "i": intra}
-    out["w"], _ = series(sym, scale, "8d", "1h")
+    out["w"], wk = series(sym, scale, "8d", "1h")
+    # last close of an earlier day from intraday bars (covers days Yahoo's daily data misses)
+    earlier = wk[[i.strftime("%Y-%m-%d") < out["d"] for i in wk.index]] if not wk.empty else wk
+    if not earlier.empty:
+        out["pd"] = [earlier.index[-1].strftime("%Y-%m-%d"), r(earlier["Close"].iloc[-1] / scale)]
     if with_month:
         out["m"], _ = series(sym, scale, "3mo", "1h", "4h", since_hours=35 * 24)
     return out
@@ -110,7 +114,11 @@ def main():
             same_day = next((row for row in rows if row[0] == lb["d"]), None)
             if same_day and same_day[2]:  # daily close includes the closing auction
                 lb["p"] = same_day[2]
-            prev = next((row[2] for row in reversed(rows) if row[0] < lb["d"]), None)
+            prev_row = next((row for row in reversed(rows) if row[0] < lb["d"]), None)
+            pd_ = lb.pop("pd", None)
+            if pd_ and (prev_row is None or pd_[0] > prev_row[0]):
+                prev_row = [pd_[0], None, pd_[1]]
+            prev = prev_row[2] if prev_row else None
             today_open = next((row[1] for row in rows if row[0] == lb["d"]), None)
             latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open)
             hist["px"][bbg] = [row for row in rows if row[0] < today]  # completed days only
