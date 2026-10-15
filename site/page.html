@@ -576,7 +576,7 @@ function renderMarkets(C){
 function renderNotice(C){
   const pend=C.now.positions.filter(p=>p.pending>0);
   const est=effTrades().filter(t=>t.est).length;
-  if(!S.trades.length || (!pend.length && !est)){ $("#notice").innerHTML=""; return; }
+  if(!S.trades.length || !pend.length){ $("#notice").innerHTML=""; return; }
   const msg = pend.length
     ? `<b>${pend.length} fill price${pend.length>1?"s":""} missing.</b> Those positions count at cost until market data or the real TMSG fill comes in.`
     : `<b>${est} fill price${est>1?"s are":" is"} estimated</b> from market data (US: price at order time, others: next open). Enter the real TMSG fills to make P&amp;L exact.`;
@@ -601,7 +601,7 @@ function renderOverview(C){
     const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
       <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
-        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&!(X&&X.k==="pre")?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${p.est?'<span class="pill wait">EST. FILL</span>':""}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&!(X&&X.k==="pre")?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
         <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
       <div class="wbar" title="${n2.format(w*100)}% of portfolio"><i class="${w>0.2?"over":""}" style="width:${Math.min(100,w/0.25*100)}%"></i><u style="left:80%"></u></div>
@@ -637,7 +637,7 @@ function renderTrades(C){
       else if(L.closed) right+=`<div class="r-pl flat">closed</div>`;
       else if(L.nomark) right+=`<div class="r-pl flat">no price</div>`;
       else right+=`<div class="r-pl num ${cls(L.pl)}">${fmtUsdS(L.pl).replace(/\.\d\d$/,"")} · ${fmtPct(L.ret)}</div>`;
-      sub = t.price>0? `${nSh((+t.usd||0)/(t.price*fx))} sh @ ${nPx(t.price)} ${esc(t.ccy)}${t.est?` <span class="pill wait">EST. ${fmtDate(t.effDate).toUpperCase()}</span>`:""}` : `fill price pending`;
+      sub = t.price>0? `${nSh((+t.usd||0)/(t.price*fx))} sh @ ${nPx(t.price)} ${esc(t.ccy)}` : `fill price pending`;
     } else {
       const R=C.now.results[t.id]||{};
       right=`<div class="r-val num">${R.proceeds!=null?usd0.format(R.proceeds):"–"}</div>`;
