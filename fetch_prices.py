@@ -88,6 +88,19 @@ def last_bar(sym, scale, with_month=False):
     return out
 
 
+def extended(sym, scale):
+    """Latest US pre-market / after-hours price, if it is newer than the regular session."""
+    h = yf.Ticker(sym).history(period="2d", interval="5m", prepost=True, auto_adjust=False).dropna(subset=["Close"])
+    if h.empty:
+        return None
+    t = h.index[-1].tz_convert("America/New_York")
+    mins = t.hour * 60 + t.minute
+    if 570 <= mins < 960:  # 9:30-16:00 New York = regular session
+        return None
+    return {"p": r(h["Close"].iloc[-1] / scale), "k": "pre" if mins < 570 else "post",
+            "t": t.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
 def main():
     tickers = [l.strip() for l in (ROOT / "tickers.txt").read_text().splitlines() if l.strip() and not l.startswith("#")]
     now = dt.datetime.now(dt.timezone.utc)
@@ -121,6 +134,11 @@ def main():
             prev = prev_row[2] if prev_row else None
             today_open = next((row[1] for row in rows if row[0] == lb["d"]), None)
             latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open)
+            if ccy == "USD" and "." not in sym:
+                ext = extended(sym, scale)
+                if ext and lb.get("t") and ext["t"] > lb["t"]:
+                    ext["base"] = lb["p"]  # last regular price: yesterday's close pre-market, today's close after hours
+                    latest["px"][bbg]["ext"] = ext
             hist["px"][bbg] = [row for row in rows if row[0] < today]  # completed days only
         except Exception as e:  # keep going for the other names
             latest["errors"].append(f"{bbg} ({sym}): {type(e).__name__}: {e}"[:200])
