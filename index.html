@@ -123,6 +123,10 @@ button.row:hover{background:var(--sunk)}
 .chart-foot .legend{margin:0}
 .lvtog{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;cursor:pointer;user-select:none;width:max-content}
 .lvtog input{position:absolute;opacity:0;width:1px;height:1px}
+.xh{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;visibility:hidden}
+.xh i{position:absolute;left:0;top:0;will-change:transform;backface-visibility:hidden}
+.xh .xl{width:1px;margin-left:-.5px;background:var(--muted)}
+.xh .xd{width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid var(--surface);box-sizing:border-box}
 .lvtog .sw{width:40px;height:24px;border-radius:12px;background:var(--line);position:relative;transition:background .15s;flex:none}
 .lvtog .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
 .lvtog input:checked+.sw{background:var(--accent)}
@@ -303,6 +307,8 @@ function makeSmoother(draw){
   return { set(v,m){ tgt=v; meta=m; if(cur==null||RM()){ cur=v; draw(cur,meta); return; } if(!raf) raf=requestAnimationFrame(tick); },
            reset(){ cur=null; if(raf) cancelAnimationFrame(raf); raf=0; } };
 }
+let scrollGen=0; document.addEventListener("scroll",()=>{ scrollGen++; },{capture:true,passive:true});
+function setHTML(el,h){ if(el && el.__h!==h){ el.innerHTML=h; el.__h=h; } }
 function retrigger(el,cls){ if(!el||RM()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
 /* ---------- formatting ---------- */
@@ -514,11 +520,13 @@ function lineChart(box,pts,base,opts){
     <path class="main" d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${marks.map(m=>`<circle cx="${X(m.x).toFixed(1)}" cy="${Y(m.v).toFixed(1)}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`).join("")}
     <circle cx="${X(pts[pts.length-1].x).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="4" fill="${col}"/>
-    <g class="cur" visibility="hidden"><line class="cl" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1"/><circle class="cc" r="5" fill="${col}" stroke="var(--surface)" stroke-width="2"/></g>
     <g class="c2" visibility="hidden"><line class="c2l" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/><circle class="c2c" r="5" stroke="var(--surface)" stroke-width="2"/></g>
     <text class="selt" y="13" text-anchor="middle" font-size="12" font-weight="700" font-family="IBM Plex Mono, monospace" visibility="hidden"></text>
-    <rect class="hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/></svg>`;
-  const svg=box.querySelector("svg"), cur=svg.querySelector(".cur"), hit=svg.querySelector(".hit");
+    <rect class="hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/></svg><div class="xh" aria-hidden="true"><i class="xl"></i><i class="xd" style="background:${col}"></i></div>`;
+  if(getComputedStyle(box).position==="static") box.style.position="relative";
+  const svg=box.querySelector("svg"), hit=svg.querySelector(".hit");
+  /* the finger cursor is an HTML layer on top of the chart, moved by the GPU only: the line chart itself is never redrawn while scrubbing */
+  const xh=box.querySelector(".xh"), xl=xh.querySelector(".xl"), xd=xh.querySelector(".xd");
   if(opts.drawIn && !RM()){ const mp=svg.querySelector(".main");
     try{ const L=mp.getTotalLength(); mp.style.strokeDasharray=L; mp.style.strokeDashoffset=L; mp.getBoundingClientRect();
       mp.style.transition="stroke-dashoffset .6s cubic-bezier(.4,0,.2,1)"; mp.style.strokeDashoffset="0";
@@ -526,12 +534,18 @@ function lineChart(box,pts,base,opts){
   const sel=svg.querySelector(".sel"), c2=svg.querySelector(".c2"), selT=svg.querySelector(".selt");
   /* smooth scrubbing: cursor follows the finger continuously, dot glides along the line,
      figures come from the nearest real data point; DOM writes batched to one per frame */
-  const XS=pts.map(p=>X(p.x)), cl=svg.querySelector(".cl"), cc=svg.querySelector(".cc");
-  const svgX=e=>{ const r=svg.getBoundingClientRect(); return Math.max(XS[0],Math.min(XS[XS.length-1],(e.clientX-r.left)*(W/r.width))); };
+  const XS=pts.map(p=>X(p.x));
+  let rect=null, rectGen=-1, kx=1, ky=1;
+  const measure=()=>{ rect=svg.getBoundingClientRect(); rectGen=scrollGen;  /* measured once per touch (and after a scroll), not every frame */
+    const br=box.getBoundingClientRect(); kx=rect.width/W; ky=rect.height/H;
+    xh.style.left=(rect.left-br.left+box.scrollLeft)+"px"; xh.style.top=(rect.top-br.top+box.scrollTop)+"px"; xl.style.height=rect.height+"px"; };
+  const svgX=e=>{ if(!rect||rectGen!==scrollGen) measure(); const r=rect; return Math.max(XS[0],Math.min(XS[XS.length-1],(e.clientX-r.left)*(W/r.width))); };
   const idxAt=x=>{ let a=0,b=XS.length-1; while(b-a>1){ const m=(a+b)>>1; if(XS[m]<=x) a=m; else b=m; } return [a,b]; };
   const nearest=e=>{ const x=svgX(e), [a,b]=idxAt(x); return (x-XS[a]<=XS[b]-x)?pts[a]:pts[b]; };
   const yAt=x=>{ const [a,b]=idxAt(x), t=XS[b]===XS[a]?0:(x-XS[a])/(XS[b]-XS[a]); return Y(pts[a].v+(pts[b].v-pts[a].v)*t); };
-  const putCur=(x,y)=>{ cur.setAttribute("visibility","visible"); cl.setAttribute("x1",x); cl.setAttribute("x2",x); cc.setAttribute("cx",x); cc.setAttribute("cy",y); };
+  let curOn=false;
+  const putCur=(x,y)=>{ if(!curOn){ xh.style.visibility="visible"; curOn=true; } const px=(x*kx).toFixed(2);
+    xl.style.transform="translate3d("+px+"px,0,0)"; xd.style.transform="translate3d("+px+"px,"+(y*ky).toFixed(2)+"px,0)"; };
   const hideSel=()=>{ sel.setAttribute("visibility","hidden"); c2.setAttribute("visibility","hidden"); selT.setAttribute("visibility","hidden"); };
   const showRange=(a,b)=>{
     const [p,q]=a.x<=b.x?[a,b]:[b,a], x1=X(p.x), x2=X(q.x), d=q.v-p.v, rc=d>=0?"var(--up)":"var(--down)";
@@ -551,8 +565,9 @@ function lineChart(box,pts,base,opts){
     if(opts.onScrub){ const [i,j]=idxAt(x), t=XS[j]===XS[i]?0:(x-XS[i])/(XS[j]-XS[i]);
       opts.onScrub({v:pts[i].v+(pts[j].v-pts[i].v)*t, x:pts[i].x+(pts[j].x-pts[i].x)*t, label:b.label}); } };
   const mv=e=>{ pend={clientX:e.clientX,buttons:e.buttons}; if(!raf) raf=requestAnimationFrame(frame); };
-  const lv=()=>{ if(A) return; pend=null; lastPt=null; frozen=false; hideSel(); cur.setAttribute("visibility","hidden"); if(opts.onLeave) opts.onLeave(); };
-  hit.addEventListener("pointerdown",e=>{
+  const lv=()=>{ if(A) return; pend=null; lastPt=null; frozen=false; rect=null; curOn=false; hideSel(); xh.style.visibility="hidden"; if(opts.onLeave) opts.onLeave(); };
+  hit.addEventListener("pointerenter",measure);
+  hit.addEventListener("pointerdown",e=>{ measure();
     if(e.pointerType==="mouse"){ frozen=false; hideSel(); A=nearest(e); try{hit.setPointerCapture(e.pointerId);}catch(_){} }
     mv(e); });
   hit.addEventListener("pointerup",e=>{ if(!A) return; const b=nearest(e); frozen=b!==A; if(!frozen){ hideSel(); } A=null; });
@@ -654,8 +669,8 @@ function paintHero(v,label,x){
 function drawHero(v,label,x,vPt){
   const h=heroState; if(!h) return;
   const val=v==null?(tween?tween.cur:h.tot):v;
-  $("#total").innerHTML=bigMoney(val);
-  $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x));
+  setHTML($("#total"),bigMoney(val));
+  setHTML($("#chg"),chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x)));
   const P=h.pts; if(P&&P.length) paintBm({x:P[0].x,v:h.base}, v==null?P[P.length-1]:{x,v:vPt==null?v:vPt});
 }
 function renderHero(C,R){
@@ -1134,7 +1149,7 @@ function openPosition(tk,C){
     const paint=(v,label)=>paintNow(v,label);
     const paintNow=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
       const X=L&&L.ext&&L.ext.base>0?L.ext:null;
-      $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label,x=>fmtLocal(x,p.ccy))+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
+      setHTML($("#sBig"),esc(fmtLocal(val,p.ccy))); setHTML($("#sChg"),chgLine(val-s.base,s.base,label||s.label,x=>fmtLocal(x,p.ccy))+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:"")); };
     if(s.pts.length<2){
       $("#sBig").innerHTML=p.px?esc(fmtLocal(p.px,p.ccy)):"–"; $("#sChg").innerHTML="";
       box.innerHTML=`<div class="chart-empty">${S.stockRange==="1d"||S.stockRange==="1w"?"Intraday prices arrive with the next price update.":"Price history appears once the price feed has data for "+esc(tk)+"."}</div>`;
