@@ -514,11 +514,14 @@ function lineChart(box,pts,base,opts){
       mp.style.transition="stroke-dashoffset .6s cubic-bezier(.4,0,.2,1)"; mp.style.strokeDashoffset="0";
       setTimeout(()=>{ mp.style.strokeDasharray=""; mp.style.transition=""; },700); svg.classList.add("drawing"); }catch(e){} }
   const sel=svg.querySelector(".sel"), c2=svg.querySelector(".c2"), selT=svg.querySelector(".selt");
-  const nearest=e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)*(W/r.width);
-    let b=pts[0],bd=1e9; for(const p of pts){ const d=Math.abs(X(p.x)-x); if(d<bd){bd=d;b=p;} } return b; };
-  const putCur=b=>{ cur.setAttribute("visibility","visible");
-    const cl=svg.querySelector(".cl"); cl.setAttribute("x1",X(b.x)); cl.setAttribute("x2",X(b.x));
-    const cc=svg.querySelector(".cc"); cc.setAttribute("cx",X(b.x)); cc.setAttribute("cy",Y(b.v)); };
+  /* smooth scrubbing: cursor follows the finger continuously, dot glides along the line,
+     figures come from the nearest real data point; DOM writes batched to one per frame */
+  const XS=pts.map(p=>X(p.x)), cl=svg.querySelector(".cl"), cc=svg.querySelector(".cc");
+  const svgX=e=>{ const r=svg.getBoundingClientRect(); return Math.max(XS[0],Math.min(XS[XS.length-1],(e.clientX-r.left)*(W/r.width))); };
+  const idxAt=x=>{ let a=0,b=XS.length-1; while(b-a>1){ const m=(a+b)>>1; if(XS[m]<=x) a=m; else b=m; } return [a,b]; };
+  const nearest=e=>{ const x=svgX(e), [a,b]=idxAt(x); return (x-XS[a]<=XS[b]-x)?pts[a]:pts[b]; };
+  const yAt=x=>{ const [a,b]=idxAt(x), t=XS[b]===XS[a]?0:(x-XS[a])/(XS[b]-XS[a]); return Y(pts[a].v+(pts[b].v-pts[a].v)*t); };
+  const putCur=(x,y)=>{ cur.setAttribute("visibility","visible"); cl.setAttribute("x1",x); cl.setAttribute("x2",x); cc.setAttribute("cx",x); cc.setAttribute("cy",y); };
   const hideSel=()=>{ sel.setAttribute("visibility","hidden"); c2.setAttribute("visibility","hidden"); selT.setAttribute("visibility","hidden"); };
   const showRange=(a,b)=>{
     const [p,q]=a.x<=b.x?[a,b]:[b,a], x1=X(p.x), x2=X(q.x), d=q.v-p.v, rc=d>=0?"var(--up)":"var(--down)";
@@ -529,12 +532,14 @@ function lineChart(box,pts,base,opts){
     selT.textContent=fmtPct(p.v?d/p.v:0); selT.setAttribute("fill",rc);
     selT.setAttribute("x",Math.min(W-30,Math.max(30,(x1+x2)/2))); selT.setAttribute("visibility",x2-x1>4?"visible":"hidden");
     if(opts.onRange) opts.onRange(p,q); };
-  let A=null, frozen=false;
-  const mv=e=>{
-    if(A && (e.buttons&1)){ const b=nearest(e); putCur(b); showRange(A,b); return; }
+  let A=null, frozen=false, pend=null, raf=0, lastPt=null;
+  const frame=()=>{ raf=0; const e=pend; if(!e) return;
+    const x=svgX(e), b=nearest(e);
+    if(A && (e.buttons&1)){ putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; showRange(A,b); } return; }
     if(frozen) return;
-    const b=nearest(e); putCur(b); if(opts.onScrub) opts.onScrub(b); };
-  const lv=()=>{ if(A) return; frozen=false; hideSel(); cur.setAttribute("visibility","hidden"); if(opts.onLeave) opts.onLeave(); };
+    putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; if(opts.onScrub) opts.onScrub(b); } };
+  const mv=e=>{ pend={clientX:e.clientX,buttons:e.buttons}; if(!raf) raf=requestAnimationFrame(frame); };
+  const lv=()=>{ if(A) return; pend=null; lastPt=null; frozen=false; hideSel(); cur.setAttribute("visibility","hidden"); if(opts.onLeave) opts.onLeave(); };
   hit.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"){ frozen=false; hideSel(); A=nearest(e); try{hit.setPointerCapture(e.pointerId);}catch(_){} }
     mv(e); });
