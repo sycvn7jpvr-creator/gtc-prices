@@ -1,0 +1,953 @@
+<title>GTC Mid-Cap Book</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one phone-width column; a big-number hero and line chart up top, then positions, trades and prices behind a sticky tab bar. Terminal amber marks tickers. */
+:root{
+  --bg:#f4f5f8; --surface:#ffffff; --sunk:#eceef3; --ink:#11161f; --muted:#5b6474; --line:#dfe2e9;
+  --accent:#c77700; --accent-soft:#fbefd9; --up:#0e8a55; --up-soft:#e2f4ea; --down:#cf3434; --down-soft:#fbe6e6;
+  --shadow:0 1px 2px rgba(17,22,31,.06),0 8px 24px rgba(17,22,31,.06);
+  --f-display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
+  --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
+  --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+.wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono)}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--muted)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-top:18px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.book{font-family:var(--f-display);font-weight:700;font-size:18px;margin-top:2px}
+.clock{text-align:right;min-width:0}
+.clock .eyebrow{display:block}
+.clock b{font-family:var(--f-display);font-size:18px;display:block;margin-top:2px}
+.track{height:4px;background:var(--sunk);border-radius:2px;overflow:hidden;margin-top:6px;width:120px;margin-left:auto}
+.track i{display:block;height:100%;background:var(--accent)}
+
+/* hero */
+.hero{display:flex;flex-direction:column;gap:6px}
+.big{font-family:var(--f-display);font-weight:700;font-size:clamp(36px,10vw,52px);line-height:1.05;letter-spacing:-.02em}
+.big .cents{font-size:.5em;letter-spacing:0;color:var(--muted);font-weight:500}
+.chg{display:flex;flex-wrap:wrap;gap:6px 14px;font-weight:600}
+.chg span small{font-weight:500;color:var(--muted);margin-left:4px}
+.fresh{font-size:12px;color:var(--muted)}
+.sh-name{font-weight:600;font-size:16px;color:var(--muted)}
+.sbig{font-family:var(--f-display);font-weight:700;font-size:clamp(32px,9vw,42px);line-height:1.05;letter-spacing:-.02em}
+
+/* chart */
+.chart{position:relative;display:flex;flex-direction:column;gap:10px}
+.chart svg{display:block;width:100%;height:190px;touch-action:pan-y}
+.chart-empty{height:150px;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:16px}
+.ranges{display:flex;gap:4px;flex-wrap:wrap}
+.ranges button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px;color:var(--muted)}
+.ranges button[aria-pressed="true"]{background:var(--sunk);color:var(--ink)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;margin-top:4px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px dashed var(--muted);vertical-align:middle;margin-right:5px}
+
+/* tabs */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;padding-block:8px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:10px;font-weight:600;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* notices */
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--accent-soft);font-size:14px}
+.note b{font-weight:600}
+.note button{margin-left:auto;border:0;background:transparent;color:var(--accent);font-weight:600;white-space:nowrap;padding:0}
+
+/* section */
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.sec-h h2{font-family:var(--f-display);font-weight:700;font-size:20px;margin:0}
+.sec-h span{font-size:13px;color:var(--muted)}
+.list{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:13px 16px;border-top:1px solid var(--line);align-items:center;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0;background:transparent}
+.row:first-child{border-top:0}
+button.row:hover{background:var(--sunk)}
+.r-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-sub{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;min-width:0;flex-wrap:wrap}
+.r-val{text-align:right;font-weight:600}
+.r-pl{text-align:right;font-size:13px;font-weight:600}
+.tk{font-family:var(--f-mono);font-size:12px;color:var(--accent);letter-spacing:.02em}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:6px}
+.pill.buy{background:var(--up-soft);color:var(--up)}
+.pill.sell{background:var(--down-soft);color:var(--down)}
+.pill.wait{background:var(--accent-soft);color:var(--accent)}
+.pill.cap{background:var(--down-soft);color:var(--down)}
+.wbar{grid-column:1/-1;height:3px;background:var(--sunk);border-radius:2px;position:relative;margin-top:4px}
+.wbar i{position:absolute;inset:0 auto 0 0;background:var(--muted);border-radius:2px;opacity:.55}
+.wbar i.over{background:var(--down);opacity:1}
+.wbar u{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--down);text-decoration:none;opacity:.6}
+.empty{padding:22px 16px;color:var(--muted);text-align:center;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.stats div{background:var(--surface);padding:12px 14px;min-width:0}
+.stats small{display:block;font-size:12px;color:var(--muted)}
+.stats b{display:block;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:var(--surface);padding:10px 16px;border-radius:12px;font-weight:600}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--down);border-color:var(--down-soft)}
+.btn.small{padding:6px 12px;font-size:13px;border-radius:10px}
+.fab{position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:10;border:0;background:var(--ink);color:var(--bg);padding:14px 20px;border-radius:999px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* sheet */
+.veil{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;
+  padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+@media (min-width:640px){.veil{align-items:center}.sheet{border-radius:20px}}
+.sheet h3{font-family:var(--f-display);font-size:22px;margin:0}
+.seg{display:flex;background:var(--sunk);border-radius:12px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;padding:9px;border-radius:10px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:380px){.grid2{grid-template-columns:1fr}}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+label.f input,label.f select,label.f textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+label.f .hint{font-weight:400;font-size:12px}
+.calc{background:var(--sunk);border-radius:12px;padding:10px 12px;font-size:14px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.actions .grow{flex:1}
+.err{color:var(--down);font-size:14px;font-weight:600}
+.pxrow{display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.pxrow input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;text-align:right}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:30;font-size:14px}
+.foot{font-size:12px;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:rise .18s ease-out}@keyframes rise{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Bloomberg GTC-2026 · Mid caps</div>
+      <div class="book" id="bookName">Europe Group A</div>
+    </div>
+    <div class="clock">
+      <span class="eyebrow" id="clockLbl">Challenge</span>
+      <b id="clockVal">–</b>
+      <div class="track"><i id="clockBar" style="width:0%"></i></div>
+    </div>
+  </header>
+
+  <section class="hero" aria-live="polite">
+    <div class="eyebrow">Portfolio value</div>
+    <div class="big num" id="total">$1,000,000<span class="cents">.00</span></div>
+    <div class="chg num" id="chg"></div>
+    <div class="fresh" id="fresh"></div>
+  </section>
+
+  <section class="chart" id="chartBox">
+    <div class="ranges" id="ranges">
+      <button data-r="1d" aria-pressed="false">1D</button>
+      <button data-r="7" aria-pressed="false">1W</button>
+      <button data-r="all" aria-pressed="true">All</button>
+    </div>
+    <div id="chartArea"><div class="chart-empty">Loading your trades…</div></div>
+    <div class="legend" id="legend" hidden><span><i></i>WLS Index</span></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
+    <button role="tab" data-tab="trades" aria-selected="false">Trades</button>
+    <button role="tab" data-tab="prices" aria-selected="false">Data</button>
+  </nav>
+
+  <div id="notice"></div>
+  <main id="view"></main>
+  <p class="foot" id="foot">Values in USD. Local prices are converted at the FX rate you enter.</p>
+</div>
+
+<button class="fab" id="fab" hidden>+ Trade</button>
+<div id="modal"></div>
+<div id="toastBox"></div>
+
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const S = {
+  db:null, user:null, myId:null, canWrite:true, dbState:"loading",
+  trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
+  got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
+  market:{latest:null,history:null}, stockRange:"1d"
+};
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","max"].includes(sr)) S.stockRange=sr; }catch(e){}
+
+/* ---------- formatting ---------- */
+const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const usd2 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});
+const n2 = new Intl.NumberFormat("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const nPx = v => new Intl.NumberFormat("en-US",{maximumFractionDigits: v>=1000?1: v>=10?2:4, minimumFractionDigits: v>=1000?0:2}).format(v);
+const nSh = v => new Intl.NumberFormat("en-US",{maximumFractionDigits: v>=100?0:2}).format(v);
+const sign = v => v>0.0000001?"+":(v<-0.0000001?"−":"");
+const fmtUsdS = v => sign(v)+usd2.format(Math.abs(v));
+const fmtPct = v => sign(v)+n2.format(Math.abs(v*100))+"%";
+const cls = v => v>0.0000001?"up":(v<-0.0000001?"down":"flat");
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDate = d => { if(!d) return ""; const [y,m,dd]=d.split("-"); return (+dd)+" "+MONTHS[+m-1]; };
+function today(){ const d=new Date(); const p=x=>String(x).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+const dayNum = d => Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))/864e5;
+const num = v => { if(v===""||v==null) return null; const x=Number(String(v).replace(/,/g,"").trim()); return isFinite(x)?x:null; };
+
+/* Bloomberg exchange code -> trading currency */
+const CCY = {US:"USD",UN:"USD",UW:"USD",UQ:"USD",UR:"USD",UA:"USD",UP:"USD",JT:"JPY",TT:"TWD",SW:"CHF",SE:"CHF",VX:"CHF",
+  GY:"EUR",GR:"EUR",GF:"EUR",BB:"EUR",NA:"EUR",FP:"EUR",IM:"EUR",SM:"EUR",ID:"EUR",PL:"EUR",AV:"EUR",FH:"EUR",
+  SS:"SEK",NO:"NOK",DC:"DKK",LN:"GBP",AU:"AUD",AT:"AUD",HK:"HKD",CN:"CAD",CT:"CAD",KS:"KRW",SP:"SGD",TB:"THB",SJ:"ZAR",PM:"PHP",IJ:"IDR",MK:"MYR"};
+const guessCcy = t => { const p=String(t||"").trim().toUpperCase().split(/\s+/); return CCY[p[p.length-1]]||""; };
+
+/* ---------- price feed ---------- */
+const feedPx = () => (S.market.history&&S.market.history.px)||{};
+const feedFx = () => (S.market.history&&S.market.history.fx)||{};
+const livePx = () => (S.market.latest&&S.market.latest.px)||{};
+const liveFx = () => (S.market.latest&&S.market.latest.fx)||{};
+function feedFxAt(ccy,d){
+  if(ccy==="USD") return 1;
+  let v=null; for(const [dd,c] of (feedFx()[ccy]||[])){ if(dd<=d) v=c; else break; }
+  const l=liveFx()[ccy]; if(l && l.d<=d && (v==null || l.d>=d)) v=l.v;
+  return v;
+}
+/* Fill estimate for a buy without a fill price: US listings at that day's close
+   (orders went in during US hours), everything else at the next session's open. */
+function estimateFill(t){
+  if(t.estPrice>0) return {date:t.estDate||t.date, price:t.estPrice, fx: t.ccy==="USD"?1:(t.estFx||feedFxAt(t.ccy,t.estDate||t.date)||t.fx), ts:t.estTs||null};
+  const rows=feedPx()[t.ticker]||[], L=livePx()[t.ticker];
+  let date=null, price=null;
+  if(t.ccy==="USD"){
+    const r=rows.find(x=>x[0]===t.date);
+    if(r){ date=r[0]; price=r[2]; } else if(L && L.d===t.date){ date=L.d; price=L.p; }
+  } else {
+    const r=rows.find(x=>x[0]>t.date && x[1]>0);
+    if(r){ date=r[0]; price=r[1]; } else if(L && L.d>t.date && L.o>0){ date=L.d; price=L.o; }
+  }
+  if(!(price>0)) return null;
+  return {date, price, fx: feedFxAt(t.ccy,date) || t.fx};
+}
+let EFF=null;
+function effTrades(){
+  if(EFF) return EFF;
+  EFF = S.trades.map(t=>{
+    if(t.side==="BUY" && !(t.price>0)){
+      const e=estimateFill(t);
+      if(e) return Object.assign({},t,{price:e.price,fx:t.ccy==="USD"?1:e.fx,effDate:e.date,effTs:e.ts||null,est:true});
+    }
+    return Object.assign({},t,{effDate:t.date});
+  });
+  return EFF;
+}
+
+/* ---------- engine ---------- */
+function sortedTrades(){
+  return effTrades().slice().sort((a,b)=> a.effDate<b.effDate?-1:a.effDate>b.effDate?1: String(a.createdAt||"").localeCompare(String(b.createdAt||"")));
+}
+const RANK={fill:0,feed:1,live:2,mark:3};
+function buildObs(){
+  const px={}, fx={};
+  const push=(o,k,v)=>{ (o[k]=o[k]||[]).push(v); };
+  for(const t of effTrades()){
+    if(t.price>0) push(px,t.ticker,{date:t.effDate,v:t.price,src:"fill"});
+    if(t.ccy && t.ccy!=="USD" && t.fx>0) push(fx,t.ccy,{date:t.effDate,v:t.fx,src:"fill"});
+  }
+  const fp=feedPx(); for(const k in fp) for(const r of fp[k]) if(r[2]>0) push(px,k,{date:r[0],v:r[2],src:"feed"});
+  const ff=feedFx(); for(const k in ff) for(const r of ff[k]) if(r[1]>0) push(fx,k,{date:r[0],v:r[1],src:"feed"});
+  const lp=livePx(); for(const k in lp) if(lp[k].p>0) push(px,k,{date:lp[k].d,v:lp[k].p,src:"live"});
+  const lf=liveFx(); for(const k in lf) if(lf[k].v>0) push(fx,k,{date:lf[k].d,v:lf[k].v,src:"live"});
+  for(const p of S.prices){
+    for(const k in (p.px||{})) if(p.px[k]>0) push(px,k,{date:p.date,v:p.px[k],src:"mark"});
+    for(const k in (p.fx||{})) if(p.fx[k]>0) push(fx,k,{date:p.date,v:p.fx[k],src:"mark"});
+  }
+  const srt=o=>{for(const k in o) o[k].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:RANK[a.src]-RANK[b.src]);};
+  srt(px); srt(fx);
+  return {px,fx};
+}
+function at(arr,d){ if(!arr) return null; let r=null; for(const o of arr){ if(o.date<=d) r=o; else break; } return r; }
+
+function run(d, obs){
+  const pos={}, results={}; let cash=S.settings.startCapital||0, realized=0;
+  for(const t of sortedTrades()){
+    if(t.effDate>d) break;
+    const p = pos[t.ticker] = pos[t.ticker] || {ticker:t.ticker,name:t.name,ccy:t.ccy,shares:0,cost:0,pending:0,pendingIds:[],est:false};
+    if(t.est) p.est=true;
+    p.name=t.name||p.name; p.ccy=t.ccy||p.ccy;
+    const fx = t.ccy==="USD"?1:t.fx;
+    if(t.side==="BUY"){
+      const usd=+t.usd||0;
+      cash-=usd;
+      if(t.price>0 && fx>0){ p.shares += usd/(t.price*fx); p.cost += usd; }
+      else { p.pending += usd; p.pendingIds.push(t.id); }
+    } else if(t.side==="SELL"){
+      const sh = Math.min(+t.shares||0, p.shares);
+      if(!(t.price>0 && fx>0) || sh<=0){ results[t.id]={invalid:true}; continue; }
+      const proceeds = sh*t.price*fx;
+      const avg = p.shares>0 ? p.cost/p.shares : 0;
+      const costOut = avg*sh, pl = proceeds-costOut;
+      realized+=pl; cash+=proceeds; p.shares-=sh; p.cost-=costOut;
+      if(p.shares<1e-7){ p.shares=0; p.cost=0; }
+      results[t.id]={proceeds,pl,ret: costOut>0?pl/costOut:0, shares:sh};
+    }
+  }
+  let invested=0; const list=[];
+  for(const k in pos){
+    const p=pos[k];
+    if(p.shares<=0 && p.pending<=0) continue;
+    const po=at(obs.px[k],d), fo = p.ccy==="USD"?{v:1}:at(obs.fx[p.ccy],d);
+    let mv = p.cost;
+    if(p.shares>0 && po && fo) mv = p.shares*po.v*fo.v;
+    p.px = po?po.v:null; p.pxDate = po?po.date:null; p.fxNow = fo?fo.v:null;
+    p.value = mv + p.pending; p.unreal = mv - p.cost;
+    invested += p.value; list.push(p);
+  }
+  return {cash, realized, positions:list, total: cash+invested, results};
+}
+
+function compute(){
+  EFF=null;
+  const obs=buildObs(), td=today();
+  const start=S.settings.start||td;
+  const dates=new Set([start]);
+  effTrades().forEach(t=>dates.add(t.effDate));
+  S.prices.forEach(p=>dates.add(p.date));
+  const fp=feedPx(); for(const k in fp) for(const r of fp[k]) dates.add(r[0]);
+  const lp=livePx(); for(const k in lp) dates.add(lp[k].d);
+  const ds=[...dates].filter(d=>d>=start && d<=td).sort();
+  const curve = ds.map(d=>({date:d,v:run(d,obs).total}));
+  const now = run(td,obs);
+  // benchmark
+  const bench = S.prices.filter(p=>p.bench>0).sort((a,b)=>a.date<b.date?-1:1);
+  const benchPts = bench.map(p=>({date:p.date,v:p.bench}));
+  // lot results for buys
+  const lots={};
+  for(const t of effTrades()){
+    if(t.side!=="BUY") continue;
+    const p = now.positions.find(x=>x.ticker===t.ticker);
+    const fx = t.ccy==="USD"?1:t.fx;
+    if(!(t.price>0 && fx>0)){ lots[t.id]={pending:true}; continue; }
+    if(!p || p.shares<=0){ lots[t.id]={closed:true,est:t.est}; continue; }
+    if(!(p.px>0 && p.fxNow>0)){ lots[t.id]={nomark:true,est:t.est}; continue; }
+    const ret = (p.px*p.fxNow)/(t.price*fx)-1;
+    lots[t.id]={ret, pl:(+t.usd||0)*ret, est:t.est, price:t.price, effDate:t.effDate};
+  }
+  return {obs, curve, now, lots, benchPts, td};
+}
+
+/* ---------- render: header + hero ---------- */
+function renderClock(){
+  const s=S.settings, td=today();
+  const a=dayNum(s.start), b=dayNum(s.end), c=dayNum(td);
+  const total=b-a, left=Math.max(0,b-c);
+  let lbl="Challenge", val;
+  if(c<a){ val="Starts "+fmtDate(s.start); }
+  else if(c>b){ lbl="Challenge"; val="Finished"; }
+  else { lbl="Ends "+fmtDate(s.end); val= left===0?"Last day": left+" day"+(left===1?"":"s")+" left"; }
+  $("#clockLbl").textContent=lbl; $("#clockVal").textContent=val;
+  $("#clockBar").style.width = Math.max(0,Math.min(100,(c-a)/total*100))+"%";
+  $("#bookName").textContent = s.name || "Europe Group A";
+}
+
+function valueAt(cv,d){ let r=null; for(const p of cv){ if(p.date<=d) r=p.v; } return r; }
+
+/* ---------- shared line chart (dotted start line, touch to scrub) ---------- */
+function lineChart(box,pts,base,opts){
+  opts=opts||{};
+  const W=Math.max(260,box.clientWidth||400), H=opts.h||190, pT=14, pB=14;
+  const marks=opts.markers||[], bench=opts.bench||[];
+  const all=pts.map(p=>p.v).concat(bench.map(p=>p.v),marks.map(m=>m.v),[base]);
+  let lo=Math.min(...all), hi=Math.max(...all);
+  if(hi-lo<=0){ const e=Math.abs(hi)*0.01||1; hi+=e; lo-=e; }
+  const pad=(hi-lo)*0.1; lo-=pad; hi+=pad;
+  const x0=pts[0].x, x1=pts[pts.length-1].x;
+  const X=x=>3+(x1===x0?0.5:(x-x0)/(x1-x0))*(W-12), Y=v=>pT+(1-(v-lo)/(hi-lo))*(H-pT-pB);
+  const last=pts[pts.length-1].v, col=last>=base?"var(--up)":"var(--down)";
+  const path=a=>a.map((p,i)=>(i?"L":"M")+X(p.x).toFixed(1)+" "+Y(p.v).toFixed(1)).join(" ");
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.aria||"Price chart")}">
+    <line x1="2" x2="${W-2}" y1="${Y(base).toFixed(1)}" y2="${Y(base).toFixed(1)}" stroke="var(--muted)" stroke-opacity=".5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 7"/>
+    ${bench.length>1?`<path d="${path(bench)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>`:""}
+    <path d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${marks.map(m=>`<circle cx="${X(m.x).toFixed(1)}" cy="${Y(m.v).toFixed(1)}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`).join("")}
+    <circle cx="${X(pts[pts.length-1].x).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="4" fill="${col}"/>
+    <g class="cur" visibility="hidden"><line class="cl" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1"/><circle class="cc" r="5" fill="${col}" stroke="var(--surface)" stroke-width="2"/></g>
+    <rect class="hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/></svg>`;
+  const svg=box.querySelector("svg"), cur=svg.querySelector(".cur"), hit=svg.querySelector(".hit");
+  const mv=e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)*(W/r.width);
+    let b=pts[0],bd=1e9; for(const p of pts){ const d=Math.abs(X(p.x)-x); if(d<bd){bd=d;b=p;} }
+    cur.setAttribute("visibility","visible");
+    const cl=svg.querySelector(".cl"); cl.setAttribute("x1",X(b.x)); cl.setAttribute("x2",X(b.x));
+    const cc=svg.querySelector(".cc"); cc.setAttribute("cx",X(b.x)); cc.setAttribute("cy",Y(b.v));
+    if(opts.onScrub) opts.onScrub(b); };
+  const lv=()=>{ cur.setAttribute("visibility","hidden"); if(opts.onLeave) opts.onLeave(); };
+  hit.addEventListener("pointermove",mv); hit.addEventListener("pointerdown",mv);
+  hit.addEventListener("pointerleave",lv); hit.addEventListener("pointercancel",lv);
+}
+
+/* ---------- portfolio over the selected period ---------- */
+const hhmm = ts => new Date(ts*1000).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+const dhm = ts => new Date(ts*1000).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"});
+/* midnight today, German time (unix seconds) */
+function berlinMidnight(){
+  const now=new Date(), o={};
+  new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Berlin",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"})
+    .formatToParts(now).forEach(x=>o[x.type]=x.value);
+  const wall=Date.UTC(+o.year,+o.month-1,+o.day,+o.hour,+o.minute,+o.second);
+  const offset=wall-Math.floor(now.getTime()/1000)*1000;
+  return Math.floor((Date.UTC(+o.year,+o.month-1,+o.day)-offset)/1000);
+}
+function intradayCurve(C,key,spanH,fromTs){
+  key=key||"i"; spanH=spanH||24;
+  const L=S.market.latest; if(!L) return [];
+  const now=Math.floor(Date.now()/1000), from=fromTs||now-spanH*3600;
+  let fixed=C.now.cash; const legs=[]; const grid=new Set([from]);
+  const stepAt=(bars,t,v0)=>{ let v=v0; for(const b of bars){ if(b[0]<=t) v=b[1]; else break; } return v; };
+  for(const p of C.now.positions){
+    fixed+=p.pending;
+    if(!(p.shares>0)) continue;
+    const bars=(((L.px||{})[p.ticker]||{})[key]||[]).slice().sort((a,b)=>a[0]-b[0]);
+    const fxb=p.ccy==="USD"?[]:((((L.fx||{})[p.ccy]||{})[key]||[]).slice().sort((a,b)=>a[0]-b[0]));
+    const rows=feedPx()[p.ticker]||[];
+    const px0=(bars.filter(b=>b[0]<from).pop()||[])[1] ?? (rows.length?rows[rows.length-1][2]:p.px);
+    const fx0=p.ccy==="USD"?1:((fxb.filter(b=>b[0]<from).pop()||[])[1] ?? p.fxNow);
+    if(!(px0>0 && fx0>0)) { fixed+=p.value-p.pending; continue; }
+    bars.concat(fxb).forEach(b=>{ if(b[0]>=from && b[0]<=now) grid.add(b[0]); });
+    // before the first fill the money was still cash, so the leg counts at cost
+    const fb=effTrades().filter(t=>t.ticker===p.ticker&&t.side==="BUY"&&t.price>0).sort((a,b)=>a.effDate<b.effDate?-1:1)[0];
+    let fillTs=fb?dayNum(fb.effDate)*86400:0;
+    if(fb&&fb.effTs) fillTs=fb.effTs;
+    else if(fb&&fb.est){ if(p.ccy==="USD") fillTs+=20*3600; else { const f=bars.find(b=>b[0]>=fillTs-3*3600); if(f) fillTs=f[0]; } }
+    if(fillTs>from&&fillTs<=now) grid.add(fillTs);
+    legs.push({sh:p.shares,bars,fxb,px0,fx0,usd:p.ccy==="USD",fillTs,cost:p.cost});
+  }
+  if(!legs.some(l=>l.bars.length)) return [];
+  const ts=[...grid].sort((a,b)=>a-b);
+  const pts=ts.map(t=>({x:t/86400,v:fixed+legs.reduce((s,l)=>s+(t<l.fillTs?l.cost:l.sh*stepAt(l.bars,t,l.px0)*(l.usd?1:stepAt(l.fxb,t,l.fx0))),0),label:dhm(t)}));
+  pts.push({x:now/86400,v:C.now.total,label:"Now"});
+  return pts;
+}
+function rangePoints(C){
+  if(S.range==="1d"){ const pts=intradayCurve(C,"i",24,berlinMidnight()); return {pts,intraday:true,base:pts.length?pts[0].v:C.now.total,label:"today"}; }
+  if(S.range==="7"){ const pts=intradayCurve(C,"w",168); if(pts.length>=2) return {pts,intraday:true,base:pts[0].v,label:"past week"}; }
+  let pts=C.curve.map(p=>({x:dayNum(p.date),v:p.v,date:p.date,label:fmtDate(p.date)}));
+  if(S.range==="7"){
+    const cut=dayNum(C.td)-7, inR=pts.filter(p=>p.x>=cut), before=pts.filter(p=>p.x<cut).pop();
+    pts=before?[before,...inR]:inR;
+    return {pts,intraday:false,base:pts.length?pts[0].v:C.now.total,label:"past week"};
+  }
+  return {pts,intraday:false,base:S.settings.startCapital||C.now.total,label:"since "+fmtDate(S.settings.start)};
+}
+
+/* ---------- hero ---------- */
+function bigMoney(v,ccy){
+  if(ccy && ccy!=="USD"){ return esc(new Intl.NumberFormat("en-US",{style:"currency",currency:ccy,maximumFractionDigits:v>=1000?0:2}).format(v)); }
+  const whole=Math.floor(Math.abs(v)), cents=Math.round((Math.abs(v)-whole)*100);
+  return (v<0?"−":"")+usd0.format(whole)+'<span class="cents">.'+String(Math.min(cents,99)).padStart(2,"0")+"</span>";
+}
+function chgLine(d,base,label,money){
+  const r=base?d/base:0, arrow=d>0?"▲":d<0?"▼":"";
+  return `<span class="${cls(d)}">${arrow} ${money?money(Math.abs(d))+" · ":""}${n2.format(Math.abs(r*100))}%<small>${esc(label)}</small></span>`;
+}
+let heroState=null;
+function paintHero(v,label){
+  const h=heroState; if(!h) return;
+  const val=v==null?h.tot:v;
+  $("#total").innerHTML=bigMoney(val);
+  $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x))+(v==null?h.extra:"");
+}
+function renderHero(C,R){
+  let extra="";
+  if(!R.intraday && C.benchPts.length>=2){
+    const f=C.benchPts[0], l=C.benchPts[C.benchPts.length-1], pf=valueAt(C.curve,f.date), pl=valueAt(C.curve,l.date);
+    if(pf>0){ const ex=(pl/pf-1)-(l.v/f.v-1); extra=`<span class="${cls(ex)}">${sign(ex)}${n2.format(Math.abs(ex*100))} pp<small>vs WLS since ${fmtDate(f.date)}</small></span>`; }
+  }
+  heroState={tot:C.now.total,base:R.base,label:R.label,extra};
+  paintHero();
+  const up=S.market.latest&&S.market.latest.updated;
+  $("#fresh").textContent = up ? (()=>{ const m=Math.round((Date.now()-Date.parse(up))/60000);
+    return "Prices "+(m<90?m+" min ago":"from "+new Date(up).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"}))+" · Yahoo Finance, ~15 min delayed"; })() : "";
+}
+
+/* ---------- main chart ---------- */
+function renderChart(C,R){
+  document.querySelectorAll("#ranges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.range)));
+  const area=$("#chartArea");
+  if(R.pts.length<2){
+    area.innerHTML=`<div class="chart-empty">${R.intraday?"The 1-day chart fills in with the next price update.":"The chart fills in as soon as there are prices from two different days."}</div>`;
+    $("#legend").hidden=true; return;
+  }
+  let bench=[];
+  if(!R.intraday){
+    const binR=C.benchPts.filter(p=>p.date>=R.pts[0].date && p.date<=R.pts[R.pts.length-1].date);
+    if(binR.length>=2){ const pv=valueAt(C.curve,binR[0].date); if(pv) bench=binR.map(p=>({x:dayNum(p.date),v:pv*p.v/binR[0].v})); }
+  }
+  $("#legend").hidden=!(bench.length>1);
+  lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label),onLeave:()=>paintHero()});
+}
+
+/* ---------- views ---------- */
+function renderNotice(C){
+  const pend=C.now.positions.filter(p=>p.pending>0);
+  const est=effTrades().filter(t=>t.est).length;
+  if(!S.trades.length || (!pend.length && !est)){ $("#notice").innerHTML=""; return; }
+  const msg = pend.length
+    ? `<b>${pend.length} fill price${pend.length>1?"s":""} missing.</b> Those positions count at cost until market data or the real TMSG fill comes in.`
+    : `<b>${est} fill price${est>1?"s are":" is"} estimated</b> from market data (US: close on order day, others: next open). Enter the real TMSG fills to make P&amp;L exact.`;
+  $("#notice").innerHTML=`<div class="note"><div>${msg}</div>${S.canWrite?`<button id="goFills">Enter</button>`:""}</div>`;
+  const b=$("#goFills"); if(b) b.onclick=()=>{ setTab("trades"); };
+}
+
+function renderOverview(C){
+  const n=C.now, tot=n.total||1;
+  const ps=n.positions.slice().sort((a,b)=>b.value-a.value);
+  const investedPl = ps.reduce((s,p)=>s+p.unreal,0);
+  let rows = ps.map(p=>{
+    const w=p.value/tot, pend=p.pending>0;
+    const r = p.cost>0? p.unreal/p.cost : 0;
+    const L=livePx()[p.ticker];
+    const day = L && L.prev>0 && L.d===C.td ? L.p/L.prev-1 : null;
+    const asOf = p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
+    return `<button class="row" data-pos="${esc(p.ticker)}">
+      <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null?`<span class="num ${cls(day)}">${fmtPct(day)} today</span>`:""}`}${p.est?'<span class="pill wait">EST. FILL</span>':""}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
+      <div><div class="r-val num">${usd0.format(p.value)}</div>
+        <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
+      <div class="wbar" title="${n2.format(w*100)}% of portfolio"><i class="${w>0.2?"over":""}" style="width:${Math.min(100,w/0.25*100)}%"></i><u style="left:80%"></u></div>
+    </button>`;
+  }).join("");
+  if(!ps.length) rows=`<div class="empty">No positions yet. Tap <b>+ Trade</b> to log your first buy.</div>`;
+  const cashW=n.cash/tot;
+  const cashRow = `<div class="row"><div><div class="r-name">Cash</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`;
+  $("#view").innerHTML=`
+  <section class="stats num">
+    <div><small>Invested</small><b>${usd0.format(tot-n.cash)}</b></div>
+    <div><small>Open P&amp;L</small><b class="${cls(investedPl)}">${fmtUsdS(investedPl).replace(/\.\d\d$/,"")}</b></div>
+    <div><small>Realized</small><b class="${cls(n.realized)}">${fmtUsdS(n.realized).replace(/\.\d\d$/,"")}</b></div>
+  </section>
+  <section class="sec">
+    <div class="sec-h"><h2>Positions</h2><span>${ps.length} name${ps.length===1?"":"s"} · bar = weight, line = 20% cap</span></div>
+    <div class="list">${rows}${cashRow}</div>
+  </section>`;
+  document.querySelectorAll("[data-pos]").forEach(b=>b.onclick=()=>openPosition(b.dataset.pos,C));
+}
+
+function renderTrades(C){
+  const ts=sortedTrades().reverse();
+  const ids=[...new Set(ts.map(t=>t.by).filter(Boolean))];
+  const rows=ts.map(t=>{
+    const fx=t.ccy==="USD"?1:t.fx;
+    let right="", sub="";
+    if(t.side==="BUY"){
+      const L=C.lots[t.id]||{};
+      right=`<div class="r-val num">${usd0.format(+t.usd||0)}</div>`;
+      if(L.pending) right+=`<div class="r-pl" ><span class="pill wait">ENTER FILL</span></div>`;
+      else if(L.closed) right+=`<div class="r-pl flat">closed</div>`;
+      else if(L.nomark) right+=`<div class="r-pl flat">no price</div>`;
+      else right+=`<div class="r-pl num ${cls(L.pl)}">${fmtUsdS(L.pl).replace(/\.\d\d$/,"")} · ${fmtPct(L.ret)}</div>`;
+      sub = t.price>0? `${nSh((+t.usd||0)/(t.price*fx))} sh @ ${nPx(t.price)} ${esc(t.ccy)}${t.est?` <span class="pill wait">EST. ${fmtDate(t.effDate).toUpperCase()}</span>`:""}` : `fill price pending`;
+    } else {
+      const R=C.now.results[t.id]||{};
+      right=`<div class="r-val num">${R.proceeds!=null?usd0.format(R.proceeds):"–"}</div>`;
+      right+= R.invalid? `<div class="r-pl down">check shares/price</div>` : `<div class="r-pl num ${cls(R.pl||0)}">${fmtUsdS(R.pl||0).replace(/\.\d\d$/,"")} · ${fmtPct(R.ret||0)} realized</div>`;
+      sub = `${nSh(+t.shares||0)} sh @ ${nPx(t.price||0)} ${esc(t.ccy)}`;
+    }
+    const who = t.by && S.names[t.by] ? ` · ${esc(S.names[t.by])}` : "";
+    return `<button class="row" data-trade="${esc(t.id)}">
+      <div style="min-width:0"><div class="r-name"><span class="pill ${t.side==="BUY"?"buy":"sell"}">${t.side}</span> ${esc(t.name||t.ticker)}</div>
+      <div class="r-sub"><span class="num">${fmtDate(t.date)}</span><span class="tk">${esc(t.ticker)}</span><span class="num">${sub}</span>${who}</div>
+      ${t.note?`<div class="r-sub">${esc(t.note)}</div>`:""}</div>
+      <div>${right}</div></button>`;
+  }).join("");
+  $("#view").innerHTML=`<section class="sec">
+    <div class="sec-h"><h2>Trade history</h2><span>${ts.length} trade${ts.length===1?"":"s"}${S.canWrite?" · tap to edit":""}</span></div>
+    <div class="list">${rows||'<div class="empty">No trades yet. Tap <b>+ Trade</b> to log one.</div>'}</div>
+    <p class="foot">Buys show the lot's result at the latest price. Sells show realized profit against your average cost. Estimated fills: orders went in Wed 14 Oct 19:00 Berlin, so US names at the 19:00 price, all others at their next open.</p>
+  </section>`;
+  if(S.canWrite) document.querySelectorAll("[data-trade]").forEach(b=>b.onclick=()=>openTrade(S.trades.find(t=>t.id===b.dataset.trade)));
+  resolveNames(ids);
+}
+
+function renderPrices(C){
+  const ps=S.prices.slice().sort((a,b)=>a.date<b.date?1:-1);
+  const rows=ps.map(p=>{
+    const n=Object.keys(p.px||{}).length, f=Object.keys(p.fx||{}).length;
+    const v=valueAt(C.curve,p.date);
+    return `<button class="row" data-pd="${esc(p.date)}"><div><div class="r-name">${fmtDate(p.date)} ${p.date.slice(0,4)}</div>
+      <div class="r-sub">${n} price${n===1?"":"s"} · ${f} FX rate${f===1?"":"s"}${p.bench>0?` · WLS ${n2.format(p.bench)}`:""}</div></div>
+      <div class="r-val num">${v!=null?usd0.format(v):""}</div></button>`;
+  }).join("");
+  const ML=S.market.latest;
+  const held=C.now.positions.map(p=>p.ticker);
+  const feedRows = ML ? [...new Set([...held, ...Object.keys(ML.px||{})])].map(tk=>{
+    const L=(ML.px||{})[tk];
+    if(!L) return `<div class="row"><div><div class="r-name tk">${esc(tk)}</div><div class="r-sub">not in the price feed yet · added on the next update</div></div><div class="r-pl flat">–</div></div>`;
+    const ch=L.prev>0?L.p/L.prev-1:null;
+    return `<div class="row"><div style="min-width:0"><div class="r-name"><span class="tk">${esc(tk)}</span></div><div class="r-sub">${esc(L.y)} · ${fmtDate(L.d)}${L.t?" "+new Date(L.t).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):""}</div></div>
+      <div><div class="r-val num">${nPx(L.p)} ${esc(L.ccy)}</div>${ch!=null?`<div class="r-pl num ${cls(ch)}">${fmtPct(ch)}</div>`:""}</div></div>`;
+  }).join("") + Object.keys(ML.fx||{}).sort().map(c=>{ const f=ML.fx[c];
+    return `<div class="row"><div><div class="r-name mono">${esc(c)}USD</div><div class="r-sub">FX · ${fmtDate(f.d)}</div></div><div class="r-val num">${f.v<0.1?f.v.toPrecision(4):f.v.toFixed(4)}</div></div>`; }).join("") : "";
+  $("#view").innerHTML=`<section class="sec">
+    <div class="sec-h"><h2>Live prices</h2><span>${ML?`updated ${new Date(ML.updated).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`:""}</span></div>
+    <div class="list">${feedRows||'<div class="empty">The price feed hasn\'t delivered yet. Until it does, positions are valued at their fill price or the prices entered below.</div>'}</div>
+    ${ML&&ML.errors&&ML.errors.length?`<p class="foot" style="text-align:left;margin:0">Feed issues: ${esc(ML.errors.join("; "))}</p>`:""}
+  </section>
+  <section class="sec">
+    <div class="sec-h"><h2>Manual prices</h2>${S.canWrite?`<button class="btn small" id="newPx">Enter prices</button>`:""}</div>
+    <p class="foot" style="text-align:left;margin:0">Only needed if the feed misses something. A manual price beats the feed for that day. Optional: the WLS Index level for a benchmark line.</p>
+    <div class="list">${rows||'<div class="empty">No manual prices.</div>'}</div>
+  </section>
+  <section class="sec">
+    <div class="sec-h"><h2>Setup</h2></div>
+    <div class="list">
+      <div class="row"><div><div class="r-name">Starting capital</div><div class="r-sub">Competition window ${fmtDate(S.settings.start)} – ${fmtDate(S.settings.end)} ${S.settings.end.slice(0,4)}</div></div><div class="r-val num">${usd0.format(S.settings.startCapital)}</div></div>
+    </div>
+    ${S.canWrite?`<div class="actions"><button class="btn small" id="editSet">Edit setup</button></div>`:""}
+  </section>`;
+  const np=$("#newPx"); if(np) np.onclick=()=>openPrices(C,today());
+  if(S.canWrite) document.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>openPrices(C,b.dataset.pd));
+  const es=$("#editSet"); if(es) es.onclick=openSettings;
+}
+
+/* ---------- top-level render ---------- */
+let lastC=null;
+function render(){
+  renderClock();
+  if(S.dbState==="none"){
+    $("#view").innerHTML=`<div class="note"><div><b>Shared data isn't available in this view.</b> Open the page on claude.ai while signed in to see and log trades.</div></div>`;
+    $("#chartArea").innerHTML=""; $("#fab").hidden=true; return;
+  }
+  if(!(S.got.trades&&S.got.prices)){ return; }
+  const C=compute(); lastC=C;
+  const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderNotice(C);
+  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===S.tab)));
+  if(S.tab==="trades") renderTrades(C); else if(S.tab==="prices") renderPrices(C); else renderOverview(C);
+  $("#fab").hidden=!S.canWrite;
+}
+function setTab(t){ S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); }
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
+let rz; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) render(); },120); });
+
+async function resolveNames(ids){
+  if(!S.user || !ids.length) return;
+  const miss=ids.filter(i=>!(i in S.names)); if(!miss.length) return;
+  try{ const ps=await S.user.profiles(ids); let ch=false; for(const i of ids){ const nm=(ps[i]&&ps[i].name)||""; if(S.names[i]!==nm){S.names[i]=nm; ch=true;} } if(ch && S.tab==="trades") render(); }catch(e){}
+}
+
+/* ---------- toast + modal ---------- */
+function toast(msg){ const b=$("#toastBox"); b.innerHTML=`<div class="toast">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t=setTimeout(()=>b.innerHTML="",2200); }
+function closeModal(){ $("#modal").innerHTML=""; document.removeEventListener("keydown",escClose); }
+function escClose(e){ if(e.key==="Escape") closeModal(); }
+function openModal(html){
+  $("#modal").innerHTML=`<div class="veil" id="veil"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  $("#veil").addEventListener("click",e=>{ if(e.target.id==="veil") closeModal(); });
+  document.addEventListener("keydown",escClose);
+  const f=$("#modal").querySelector("input,select,button"); if(f) setTimeout(()=>f.focus(),30);
+}
+function dbErr(e){
+  const c=e&&e.code;
+  if(c==="invalid_argument") { S.canWrite=false; render(); return "You have view access only, so this wasn't saved."; }
+  if(c==="quota_exceeded") return "Storage is full. Delete some old price days, then try again.";
+  if(c==="resource_exhausted") return "Too many saves at once. Wait a few seconds and try again.";
+  return "Couldn't save right now. Check your connection and try again.";
+}
+
+/* ---------- position detail ---------- */
+const fmtLocal=(v,ccy)=>new Intl.NumberFormat("en-US",{style:"currency",currency:ccy||"USD",minimumFractionDigits:v>=1000?0:2,maximumFractionDigits:v>=1000?0:(v>=10?2:3)}).format(v);
+function stockSeries(tk){
+  const L=livePx()[tk], r=S.stockRange;
+  if(r==="1d"){
+    const bars=(L&&L.i)||[]; if(bars.length<2) return {pts:[]};
+    const lastTs=bars[bars.length-1][0];
+    const pts=bars.filter(b=>b[0]>lastTs-16*3600).map(b=>({x:b[0]/86400,v:b[1],label:dhm(b[0])}));
+    return {pts,base:L.prev>0?L.prev:pts[0].v,label:L.d===today()?"today":fmtDate(L.d),intraday:true};
+  }
+  const intra=(arr,days,label)=>{ const lastTs=arr[arr.length-1][0];
+    const pts=arr.filter(b=>b[0]>=lastTs-days*86400).map(b=>({x:b[0]/86400,v:b[1],label:days>7?new Date(b[0]*1000).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):dhm(b[0])}));
+    return {pts,base:pts[0].v,label,intraday:true}; };
+  if(r==="1w" && L && L.w && L.w.length>=2) return intra(L.w,7,"1 week");
+  if(r==="1m" && L && L.m && L.m.length>=2) return intra(L.m,31,"1 month");
+  let pts=(feedPx()[tk]||[]).map(q=>({x:dayNum(q[0]),v:q[2],date:q[0],label:fmtDate(q[0])+" "+q[0].slice(0,4)}));
+  if(L && (!pts.length || L.d>pts[pts.length-1].date)) pts.push({x:dayNum(L.d),v:L.p,date:L.d,label:fmtDate(L.d)+" "+L.d.slice(0,4)});
+  const days={"1w":7,"1m":31}[r];
+  if(days){ const cut=dayNum(today())-days; pts=pts.filter(p=>p.x>=cut); }
+  const label = r==="max" ? (pts.length?"since "+pts[0].label:"") : {"1w":"1 week","1m":"1 month"}[r];
+  return {pts,base:pts.length?pts[0].v:0,label,intraday:false};
+}
+
+function openPosition(tk,C){
+  const p=C.now.positions.find(x=>x.ticker===tk); if(!p) return;
+  const ts=sortedTrades().filter(t=>t.ticker===tk).reverse();
+  const avg = p.shares>0 ? p.cost/p.shares : 0;
+  const L=livePx()[tk];
+  const r = p.cost>0? p.unreal/p.cost : 0;
+  openModal(`<div><div class="sh-name">${esc(p.name||p.ticker)}</div><div class="tk">${esc(p.ticker)} Equity${L?` · ${esc(L.y)}`:""}</div></div>
+    <div><div class="sbig num" id="sBig"></div><div class="chg num" id="sChg"></div></div>
+    <div class="ranges" id="sRanges"><button data-r="1d">1D</button><button data-r="1w">1W</button><button data-r="1m">1M</button><button data-r="max">Max</button></div>
+    <div id="sChart"></div>
+    <div class="fresh" id="sNote"></div>
+    <div class="eyebrow">Your position</div>
+    <div class="stats num" style="box-shadow:none;border:1px solid var(--line)">
+      <div><small>Value</small><b>${usd0.format(p.value)}</b></div>
+      <div><small>P&amp;L</small><b class="${cls(p.unreal)}">${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}</b></div>
+      <div><small>Weight</small><b>${n2.format(p.value/(C.now.total||1)*100)}%</b></div>
+      <div><small>Shares</small><b>${p.shares?nSh(p.shares):"–"}</b></div>
+      <div><small>Avg fill (${esc(p.ccy)})</small><b>${(()=>{ const b=effTrades().filter(t=>t.ticker===tk&&t.side==="BUY"&&t.price>0); return b.length?nPx(b.reduce((s,t)=>s+t.price*(+t.usd||0),0)/b.reduce((s,t)=>s+(+t.usd||0),0))+(b.some(t=>t.est)?" est.":""):"–"; })()}</b></div>
+      <div><small>Avg cost (USD)</small><b>${avg?n2.format(avg):"–"}</b></div>
+    </div>
+    <div class="list" style="box-shadow:none;border:1px solid var(--line)">${ts.map(t=>`<div class="row"><div><div class="r-name"><span class="pill ${t.side==="BUY"?"buy":"sell"}">${t.side}</span> ${fmtDate(t.effDate||t.date)}</div><div class="r-sub num">${t.price>0?nPx(t.price)+" "+esc(t.ccy)+(t.est?" · estimated":""):"fill pending"}</div></div><div class="r-val num">${t.side==="BUY"?usd0.format(+t.usd||0):nSh(+t.shares||0)+" sh"}</div></div>`).join("")}</div>
+    <div class="actions"><button class="btn" id="pClose">Close</button><span class="grow"></span>${S.canWrite&&p.shares>0?`<button class="btn primary" id="pSell">Sell…</button>`:""}</div>`);
+  $("#pClose").onclick=closeModal;
+  const sb=$("#pSell"); if(sb) sb.onclick=()=>openTrade(null,{side:"SELL",ticker:p.ticker,name:p.name,ccy:p.ccy});
+  const buys=effTrades().filter(t=>t.ticker===tk && t.side==="BUY" && t.price>0);
+  const draw=()=>{
+    document.querySelectorAll("#sRanges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.stockRange)));
+    const s=stockSeries(tk), box=$("#sChart");
+    const paint=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
+      $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label); };
+    if(s.pts.length<2){
+      $("#sBig").innerHTML=p.px?esc(fmtLocal(p.px,p.ccy)):"–"; $("#sChg").innerHTML="";
+      box.innerHTML=`<div class="chart-empty">${S.stockRange==="1d"||S.stockRange==="1w"?"Intraday prices arrive with the next price update.":"Price history appears once the price feed has data for "+esc(tk)+"."}</div>`;
+      $("#sNote").textContent=""; return;
+    }
+    const marks=s.intraday?[]:buys.filter(b=>b.effDate>=s.pts[0].date).map(b=>({x:dayNum(b.effDate),v:b.price}));
+    paint();
+    lineChart(box,s.pts,s.base,{h:180,markers:marks,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint()});
+    $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","max":", daily closes"}[S.stockRange]||"");
+  };
+  document.querySelectorAll("#sRanges button").forEach(b=>b.onclick=()=>{ S.stockRange=b.dataset.r; try{localStorage.setItem("gtc.srange",S.stockRange);}catch(e){} draw(); });
+  draw();
+}
+
+/* ---------- trade form ---------- */
+function latestFx(ccy){ if(ccy==="USD") return 1; const o=lastC&&lastC.obs.fx[ccy]; return o&&o.length?o[o.length-1].v:null; }
+function latestPx(tk){ const o=lastC&&lastC.obs.px[tk]; return o&&o.length?o[o.length-1].v:null; }
+function knownTickers(){ const m={}; for(const t of sortedTrades()) m[t.ticker]={name:t.name,ccy:t.ccy}; return m; }
+
+function openTrade(t, preset){
+  const edit=!!t; t = t || Object.assign({side:"BUY",date:today(),ticker:"",name:"",ccy:"",usd:100000,price:null,fx:null,shares:null,note:""},preset||{});
+  let side=t.side;
+  const known=knownTickers();
+  const held = lastC? Object.fromEntries(lastC.now.positions.map(p=>[p.ticker,p.shares])) : {};
+  openModal(`<h3>${edit?"Edit trade":"New trade"}</h3>
+    <div class="seg" id="side"><button type="button" data-s="BUY">Buy</button><button type="button" data-s="SELL">Sell</button></div>
+    <form id="tf" novalidate style="display:flex;flex-direction:column;gap:12px">
+      <div class="grid2">
+        <label class="f">Ticker <span class="hint">as in TMSG, e.g. OERL SE</span><input id="f_tk" list="tkl" autocomplete="off" autocapitalize="characters" value="${esc(t.ticker)}" required></label>
+        <label class="f">Date<input id="f_date" type="date" value="${esc(t.date)}" required></label>
+      </div>
+      <datalist id="tkl">${Object.keys(known).map(k=>`<option value="${esc(k)}">${esc(known[k].name||"")}</option>`).join("")}</datalist>
+      <div class="grid2">
+        <label class="f">Name<input id="f_name" value="${esc(t.name)}" autocomplete="off"></label>
+        <label class="f">Currency<input id="f_ccy" value="${esc(t.ccy)}" maxlength="3" autocapitalize="characters" autocomplete="off"></label>
+      </div>
+      <div class="grid2" id="buyF">
+        <label class="f">Amount (USD)<input id="f_usd" inputmode="decimal" value="${t.usd!=null?esc(t.usd):""}"></label>
+        <label class="f">Fill price <span class="hint" id="pxh">local currency · leave empty if not filled yet</span><input id="f_px" inputmode="decimal" value="${t.price!=null?esc(t.price):""}"></label>
+      </div>
+      <div class="grid2" id="sellF">
+        <label class="f">Shares <span class="hint" id="heldH"></span><input id="f_sh" inputmode="decimal" value="${t.shares!=null?esc(t.shares):""}"></label>
+        <label class="f">Sell price <span class="hint">local currency</span><input id="f_spx" inputmode="decimal" value="${t.price!=null?esc(t.price):""}"></label>
+      </div>
+      <label class="f" id="fxF">FX rate <span class="hint" id="fxh"></span><input id="f_fx" inputmode="decimal" value="${t.fx!=null?esc(t.fx):""}"></label>
+      <label class="f">Note<input id="f_note" value="${esc(t.note||"")}" autocomplete="off" placeholder="Why this trade"></label>
+      <div class="calc num" id="calc"></div>
+      <div class="err" id="ferr" role="alert"></div>
+      <div class="actions">${edit?`<button type="button" class="btn danger" id="del">Delete</button>`:""}<span class="grow"></span><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn primary" id="save">Save</button></div>
+    </form>`);
+  const g=id=>document.getElementById(id);
+  const setSide=s=>{ side=s; document.querySelectorAll("#side button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.s===s))); g("buyF").hidden=s!=="BUY"; g("sellF").hidden=s!=="SELL"; upd(); };
+  document.querySelectorAll("#side button").forEach(b=>b.onclick=()=>setSide(b.dataset.s));
+  g("f_tk").addEventListener("input",()=>{
+    const k=g("f_tk").value.trim().toUpperCase().replace(/\s+EQUITY$/,"");
+    if(known[k]){ g("f_name").value=known[k].name||""; g("f_ccy").value=known[k].ccy||""; }
+    else if(!g("f_ccy").value || !edit){ const c=guessCcy(k); if(c) g("f_ccy").value=c; }
+    if(!g("f_fx").value){ const f=latestFx(g("f_ccy").value.trim().toUpperCase()); if(f) g("f_fx").value=f; }
+    upd();
+  });
+  g("f_ccy").addEventListener("input",()=>{ const f=latestFx(g("f_ccy").value.trim().toUpperCase()); if(f && !edit) g("f_fx").value=f; upd(); });
+  ["f_usd","f_px","f_sh","f_spx","f_fx"].forEach(id=>g(id).addEventListener("input",upd));
+  function upd(){
+    const ccy=g("f_ccy").value.trim().toUpperCase();
+    const isUsd=ccy==="USD"||ccy==="";
+    g("fxF").hidden=isUsd;
+    g("fxh").textContent = ccy && !isUsd ? `USD per 1 ${ccy}${ccy==="GBP"?" (price in pounds, not pence)":""}` : "";
+    const tk=g("f_tk").value.trim().toUpperCase();
+    const h=held[tk]; g("heldH").innerHTML = h>0? `you hold ${nSh(h)} · <a href="#" id="all">sell all</a>`:"";
+    const a=document.getElementById("all"); if(a) a.onclick=e=>{e.preventDefault(); g("f_sh").value=+h.toFixed(6); upd();};
+    const fx=isUsd?1:num(g("f_fx").value);
+    let out="";
+    if(side==="BUY"){
+      const usd=num(g("f_usd").value), px=num(g("f_px").value);
+      if(usd>0 && px>0 && fx>0) out=`≈ ${nSh(usd/(px*fx))} shares at ${usd2.format(px*fx)} each`;
+      else if(usd>0) out=`Counts at cost (${usd0.format(usd)}) until you add the fill price.`;
+    } else {
+      const sh=num(g("f_sh").value), px=num(g("f_spx").value);
+      if(sh>0 && px>0 && fx>0){
+        const p=lastC&&lastC.now.positions.find(x=>x.ticker===tk);
+        const proceeds=sh*px*fx; let pl="";
+        if(p&&p.shares>0){ const r=proceeds-(p.cost/p.shares)*sh; pl=` · <span class="${cls(r)}">${fmtUsdS(r)} realized</span>`; }
+        out=`Proceeds ${usd2.format(proceeds)}${pl}`;
+      }
+    }
+    g("calc").innerHTML=out; g("calc").hidden=!out;
+  }
+  setSide(side);
+  g("cancel").onclick=closeModal;
+  if(edit){
+    let armed=false;
+    g("del").onclick=async()=>{
+      if(!armed){ armed=true; g("del").textContent="Tap again to delete"; return; }
+      try{ await S.db.collection("trades").doc(t.id).delete(); closeModal(); toast("Trade deleted"); }catch(e){ g("ferr").textContent=dbErr(e); }
+    };
+  }
+  g("tf").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const tk=g("f_tk").value.trim().toUpperCase().replace(/\s+EQUITY$/,"").replace(/\s+/g," ");
+    const ccy=(g("f_ccy").value.trim().toUpperCase()||guessCcy(tk));
+    const date=g("f_date").value;
+    const fx= ccy==="USD"?1:num(g("f_fx").value);
+    const err=m=>{ g("ferr").textContent=m; };
+    if(!tk) return err("Enter a ticker.");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err("Pick a date.");
+    if(!/^[A-Z]{3}$/.test(ccy)) return err("Enter the 3-letter currency, e.g. EUR.");
+    const body={side,ticker:tk,name:g("f_name").value.trim()||tk,ccy,date,note:g("f_note").value.trim(),fx: fx>0?fx:null};
+    if(side==="BUY"){
+      const usd=num(g("f_usd").value), px=num(g("f_px").value);
+      if(!(usd>0)) return err("Enter the USD amount.");
+      if(px!=null && !(px>0)) return err("The fill price must be a positive number.");
+      if(px>0 && !(fx>0)) return err(`Enter the FX rate (USD per 1 ${ccy}).`);
+      Object.assign(body,{usd,price:px,shares:null});
+    } else {
+      const sh=num(g("f_sh").value), px=num(g("f_spx").value);
+      if(!(sh>0)) return err("Enter how many shares you sold.");
+      if(!(px>0)) return err("Enter the sell price.");
+      if(!(fx>0)) return err(`Enter the FX rate (USD per 1 ${ccy}).`);
+      const h=held[tk]||0; const own = edit && t.side==="SELL" ? (+t.shares||0) : 0;
+      if(sh>h+own+1e-6) return err(`You only hold ${nSh(h+own)} shares of ${tk}.`);
+      Object.assign(body,{shares:sh,price:px,usd:null});
+    }
+    g("save").disabled=true;
+    try{
+      if(edit){ await S.db.collection("trades").doc(t.id).set(Object.assign({},t,body,{updatedAt:new Date().toISOString()})); }
+      else {
+        const ref=S.db.collection("trades").doc();
+        await ref.set(Object.assign(body,{id:ref.id,createdAt:new Date().toISOString(),by:S.myId||null}));
+      }
+      closeModal(); toast(edit?"Trade updated":"Trade saved");
+    }catch(ex){ g("save").disabled=false; err(dbErr(ex)); }
+  });
+}
+
+/* ---------- prices form ---------- */
+function openPrices(C,date){
+  const existing=S.prices.find(p=>p.date===date)||{px:{},fx:{}};
+  const run_=run(date,C.obs);
+  const tks=[...new Set([...run_.positions.map(p=>p.ticker), ...C.now.positions.map(p=>p.ticker), ...Object.keys(existing.px||{})])];
+  const meta={}; C.now.positions.concat(run_.positions).forEach(p=>meta[p.ticker]={name:p.name,ccy:p.ccy});
+  const ccys=[...new Set(tks.map(t=>(meta[t]||{}).ccy).filter(c=>c&&c!=="USD"))].sort();
+  const lastPx=tk=>{ const o=at(C.obs.px[tk],date); return o?o.v:null; };
+  const lastFx=c=>{ const o=at(C.obs.fx[c],date)||(C.obs.fx[c]||[]).slice(-1)[0]; return o?o.v:null; };
+  openModal(`<h3>Prices</h3>
+    <form id="pf" novalidate style="display:flex;flex-direction:column;gap:12px">
+      <label class="f">Price date<input id="p_date" type="date" value="${esc(date)}"></label>
+      <div>
+        <div class="eyebrow">Close in local currency</div>
+        ${tks.map((tk,i)=>{ const m=meta[tk]||{}; const v=existing.px&&existing.px[tk]; const lp=lastPx(tk);
+          return `<div class="pxrow"><label for="px_${i}" style="min-width:0"><div class="r-name">${esc(m.name||tk)}</div><div class="r-sub"><span class="tk">${esc(tk)}</span><span>${esc(m.ccy||"")}${lp?` · last ${nPx(lp)}`:""}</span></div></label>
+          <input id="px_${i}" data-tk="${esc(tk)}" inputmode="decimal" placeholder="${lp?esc(nPx(lp)):"price"}" value="${v?esc(v):""}"></div>`; }).join("")||'<p class="foot">No open positions on this date.</p>'}
+      </div>
+      ${ccys.length?`<div><div class="eyebrow">FX · USD per 1 unit</div>
+        ${ccys.map((c,i)=>{ const v=(existing.fx&&existing.fx[c])||lastFx(c);
+          return `<div class="pxrow"><label for="fx_${i}"><div class="r-name mono">${esc(c)}USD</div><div class="r-sub">1 ${esc(c)} = ? USD</div></label><input id="fx_${i}" data-c="${esc(c)}" inputmode="decimal" value="${v?esc(v):""}"></div>`; }).join("")}</div>`:""}
+      <div class="pxrow"><label for="p_bench"><div class="r-name">WLS Index</div><div class="r-sub">optional · for the benchmark line</div></label><input id="p_bench" inputmode="decimal" value="${existing.bench?esc(existing.bench):""}"></div>
+      <div class="err" id="perr" role="alert"></div>
+      <div class="actions">${S.prices.find(p=>p.date===date)?`<button type="button" class="btn danger" id="pdel">Delete day</button>`:""}<span class="grow"></span><button type="button" class="btn" id="pcancel">Cancel</button><button type="submit" class="btn primary" id="psave">Save prices</button></div>
+    </form>`);
+  const g=id=>document.getElementById(id);
+  g("pcancel").onclick=closeModal;
+  const del=g("pdel"); if(del){ let armed=false; del.onclick=async()=>{ if(!armed){armed=true;del.textContent="Tap again to delete";return;} try{ await S.db.collection("prices").doc(date).delete(); closeModal(); toast("Price day deleted"); }catch(e){ g("perr").textContent=dbErr(e);} }; }
+  g("pf").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const d=g("p_date").value; if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ g("perr").textContent="Pick a date."; return; }
+    const base=S.prices.find(p=>p.date===d)||{};
+    const px=Object.assign({}, d===date?{}:(base.px||{})), fx=Object.assign({}, d===date?{}:(base.fx||{}));
+    let bad="";
+    document.querySelectorAll("[data-tk]").forEach(i=>{ const v=num(i.value); if(i.value.trim()&&!(v>0)) bad="Prices must be positive numbers."; if(v>0) px[i.dataset.tk]=v; });
+    document.querySelectorAll("[data-c]").forEach(i=>{ const v=num(i.value); if(i.value.trim()&&!(v>0)) bad="FX rates must be positive numbers."; if(v>0) fx[i.dataset.c]=v; });
+    const b=num(g("p_bench").value);
+    if(bad){ g("perr").textContent=bad; return; }
+    if(!Object.keys(px).length && !(b>0)){ g("perr").textContent="Enter at least one price."; return; }
+    g("psave").disabled=true;
+    try{
+      await S.db.collection("prices").doc(d).set({date:d,px,fx,bench:b>0?b:(d===date?null:(base.bench||null)),by:S.myId||null,updatedAt:new Date().toISOString()});
+      if(d!==date && S.prices.find(p=>p.date===date)) await S.db.collection("prices").doc(date).delete();
+      closeModal(); toast("Prices saved");
+    }catch(ex){ g("psave").disabled=false; g("perr").textContent=dbErr(ex); }
+  });
+}
+
+function openSettings(){
+  const s=S.settings;
+  openModal(`<h3>Setup</h3><form id="sf" novalidate style="display:flex;flex-direction:column;gap:12px">
+    <label class="f">Book name<input id="s_name" value="${esc(s.name||"")}"></label>
+    <label class="f">Starting capital (USD)<input id="s_cap" inputmode="decimal" value="${esc(s.startCapital)}"></label>
+    <div class="grid2"><label class="f">Start<input id="s_start" type="date" value="${esc(s.start)}"></label><label class="f">End<input id="s_end" type="date" value="${esc(s.end)}"></label></div>
+    <div class="err" id="serr" role="alert"></div>
+    <div class="actions"><span class="grow"></span><button type="button" class="btn" id="scancel">Cancel</button><button type="submit" class="btn primary">Save</button></div></form>`);
+  const g=id=>document.getElementById(id);
+  g("scancel").onclick=closeModal;
+  g("sf").addEventListener("submit",async e=>{ e.preventDefault();
+    const cap=num(g("s_cap").value); if(!(cap>0)){ g("serr").textContent="Enter the starting capital."; return; }
+    if(!(g("s_start").value<g("s_end").value)){ g("serr").textContent="The end date must be after the start."; return; }
+    try{ await S.db.doc("settings/main").set({name:g("s_name").value.trim(),startCapital:cap,start:g("s_start").value,end:g("s_end").value}); closeModal(); toast("Setup saved"); }
+    catch(ex){ g("serr").textContent=dbErr(ex); }
+  });
+}
+$("#fab").onclick=()=>openTrade(null);
+
+/* ---------- boot ---------- */
+render();
+/* Public read-only copy (GitHub Pages): same page, data from JSON files next to it */
+async function staticBoot(){
+  S.canWrite=false;
+  const get=async f=>{ try{ const r=await fetch("data/"+f+"?t="+Date.now(),{cache:"no-store"}); return r.ok? await r.json():null; }catch(e){ return null; } };
+  const load=async()=>{
+    const [tr,st,pr,la,hi]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json"].map(get));
+    if(!Array.isArray(tr)){ S.dbState="none"; render(); return; }
+    S.trades=tr; S.prices=Array.isArray(pr)?pr:[]; if(st) S.settings=Object.assign({},S.settings,st);
+    S.market={latest:la,history:hi}; S.got={trades:true,prices:true}; S.dbState="ok";
+    $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), refreshed every few minutes.";
+    render();
+  };
+  await load(); setInterval(load,5*60*1000);
+}
+(async()=>{
+  const cl=window.claude;
+  if(!cl || !cl.use){ staticBoot(); return; }
+  const [db,user]=await Promise.all([cl.use("db").catch(()=>null), cl.use("user").catch(()=>null)]);
+  if(!db){ staticBoot(); return; }
+  S.db=db; S.user=user; S.dbState="ok";
+  if(user){
+    try{ S.myId=await user.id(); }catch(e){}
+    try{ const c=await user.can("data.write"); if(c===false) S.canWrite=false; }catch(e){}
+  }
+  const onErr=e=>{ if(e&&e.code==="revoked"){ S.dbState="none"; render(); } };
+  db.collection("trades").onSnapshot(s=>{ S.trades=s.docs.map(d=>Object.assign({},d.data(),{id:d.id})); S.got.trades=true; render(); }, onErr);
+  db.collection("prices").onSnapshot(s=>{ S.prices=s.docs.map(d=>Object.assign({},d.data(),{date:d.id})); S.got.prices=true; render(); }, onErr);
+  db.collection("market").onSnapshot(s=>{ const m={latest:null,history:null}; s.docs.forEach(d=>{ if(d.id in m) m[d.id]=d.data(); }); S.market=m; render(); }, onErr);
+  db.doc("settings/main").onSnapshot(s=>{ if(s.exists) S.settings=Object.assign({},S.settings,s.data()); render(); }, onErr);
+})();
+})();
+</script>
