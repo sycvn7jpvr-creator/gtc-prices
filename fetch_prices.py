@@ -56,18 +56,32 @@ def daily(sym, scale):
     return [[i.strftime("%Y-%m-%d"), r(o / scale), r(c / scale)] for i, o, c in zip(h.index, h["Open"], h["Close"])]
 
 
-INTRA_FROM = dt.datetime.now(dt.timezone.utc).timestamp() - 30 * 3600
+NOW_TS = dt.datetime.now(dt.timezone.utc).timestamp()
 
 
-def last_bar(sym, scale):
-    """Latest 15-min bar, plus all 15-min closes from the last 30 hours (for the 1-day chart)."""
-    h = yf.Ticker(sym).history(period="5d", interval="15m", auto_adjust=False).dropna(subset=["Close"])
-    if h.empty:
+def series(sym, scale, period, interval, rule=None, since_hours=None):
+    """Closes as [[unix_ts, price], ...], optionally resampled (e.g. '10min', '4h')."""
+    h = yf.Ticker(sym).history(period=period, interval=interval, auto_adjust=False).dropna(subset=["Close"])
+    c = h["Close"]
+    if rule and not c.empty:
+        c = c.resample(rule, origin="epoch", label="left", closed="left").last().dropna()
+    if since_hours:
+        c = c[[i.timestamp() >= NOW_TS - since_hours * 3600 for i in c.index]]
+    return [[int(i.timestamp()), r(v / scale)] for i, v in c.items()], h
+
+
+def last_bar(sym, scale, with_month=False):
+    """Latest price plus chart series: i = 10-min (30 h), w = hourly (8 days), m = 4-hour (35 days)."""
+    intra, raw = series(sym, scale, "5d", "5m", "10min", since_hours=30)
+    if raw.empty:
         return None
-    t = h.index[-1]
-    intra = [[int(i.timestamp()), r(c / scale)] for i, c in zip(h.index, h["Close"]) if i.timestamp() >= INTRA_FROM]
-    return {"p": r(h["Close"].iloc[-1] / scale), "d": t.strftime("%Y-%m-%d"),
-            "t": t.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"), "i": intra}
+    t = raw.index[-1]
+    out = {"p": r(raw["Close"].iloc[-1] / scale), "d": t.strftime("%Y-%m-%d"),
+           "t": t.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"), "i": intra}
+    out["w"], _ = series(sym, scale, "8d", "1h")
+    if with_month:
+        out["m"], _ = series(sym, scale, "3mo", "1h", "4h", since_hours=35 * 24)
+    return out
 
 
 def main():
@@ -87,7 +101,7 @@ def main():
         ccys.add(ccy)
         try:
             rows = daily(sym, scale)
-            lb = last_bar(sym, scale)
+            lb = last_bar(sym, scale, with_month=True)
             if not rows and not lb:
                 latest["errors"].append(f"{bbg} ({sym}): no data")
                 continue
@@ -98,9 +112,7 @@ def main():
                 lb["p"] = same_day[2]
             prev = next((row[2] for row in reversed(rows) if row[0] < lb["d"]), None)
             today_open = next((row[1] for row in rows if row[0] == lb["d"]), None)
-            wk = yf.Ticker(sym).history(period="8d", interval="1h", auto_adjust=False).dropna(subset=["Close"])
-            week = [[int(i.timestamp()), r(c / scale)] for i, c in zip(wk.index, wk["Close"])]
-            latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open, w=week)
+            latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open)
             hist["px"][bbg] = [row for row in rows if row[0] < today]  # completed days only
         except Exception as e:  # keep going for the other names
             latest["errors"].append(f"{bbg} ({sym}): {type(e).__name__}: {e}"[:200])
@@ -110,7 +122,7 @@ def main():
         try:
             rows = daily(sym, 1.0)
             lb = last_bar(sym, 1.0) or {"p": rows[-1][2], "d": rows[-1][0], "t": None}
-            latest["fx"][ccy] = {"v": lb["p"], "d": lb["d"], "t": lb["t"], "i": lb.get("i", [])}
+            latest["fx"][ccy] = {"v": lb["p"], "d": lb["d"], "t": lb["t"], "i": lb.get("i", []), "w": lb.get("w", [])}
             hist["fx"][ccy] = [[d, c] for d, o, c in rows if d < today]
         except Exception as e:
             latest["errors"].append(f"FX {ccy}: {type(e).__name__}: {e}"[:200])
