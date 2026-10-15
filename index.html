@@ -9,7 +9,7 @@
   --bg:#f4f5f8; --surface:#ffffff; --sunk:#eceef3; --ink:#11161f; --muted:#5b6474; --line:#dfe2e9;
   --accent:#c77700; --accent-soft:#fbefd9; --up:#0e8a55; --up-soft:#e2f4ea; --down:#cf3434; --down-soft:#fbe6e6;
   --shadow:0 1px 2px rgba(17,22,31,.06),0 8px 24px rgba(17,22,31,.06);
-  --alert-bg:#d92d20; --alert-fg:#ffffff;
+  --alert-bg:#d92d20; --alert-fg:#ffffff; --bench:#4f6d9a;
   --f-display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
   --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
@@ -17,11 +17,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
   --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; color-scheme:dark}}
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; --bench:#8aa4cc; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0b0e13; --surface:#141922; --sunk:#1b212c; --ink:#edf0f5; --muted:#8e98a9; --line:#252c38;
   --accent:#f2a33a; --accent-soft:#3a2a12; --up:#34c486; --up-soft:#11291e; --down:#ff6464; --down-soft:#341819;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; color-scheme:dark}
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --alert-bg:#e5484d; --alert-fg:#ffffff; --bench:#8aa4cc; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
@@ -65,7 +65,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .ranges button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px;color:var(--muted)}
 .ranges button[aria-pressed="true"]{background:var(--sunk);color:var(--ink)}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;margin-top:4px}
-.legend i{display:inline-block;width:14px;height:0;border-top:2px dashed var(--muted);vertical-align:middle;margin-right:5px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid var(--bench);border-radius:1px;vertical-align:middle;margin-right:5px}
 
 /* tabs */
 .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;padding-block:8px;border-bottom:1px solid var(--line)}
@@ -436,22 +436,32 @@ function renderClock(){
 function valueAt(cv,d){ let r=null; for(const p of cv){ if(p.date<=d) r=p.v; } return r; }
 
 /* ---------- shared line chart (dotted start line, touch to scrub) ---------- */
+function calcRange(vals){
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(hi-lo<=0){ const e=Math.abs(hi)*0.01||1; hi+=e; lo-=e; }
+  const pad=(hi-lo)*0.1; return {lo:lo-pad,hi:hi+pad};
+}
 function lineChart(box,pts,base,opts){
   opts=opts||{};
   const W=Math.max(260,box.clientWidth||400), H=opts.h||190, pT=14, pB=14;
   const marks=opts.markers||[], bench=opts.bench||[], hl=opts.levels||[];
-  const all=pts.map(p=>p.v).concat(bench.map(p=>p.v),(opts.scaleWith||[]),marks.map(m=>m.v),[base]);  /* scaleWith: values that set the scale even when not drawn */
-  let lo=Math.min(...all), hi=Math.max(...all);
-  if(hi-lo<=0){ const e=Math.abs(hi)*0.01||1; hi+=e; lo-=e; }
-  const pad=(hi-lo)*0.1; lo-=pad; hi+=pad;
+  const rg=opts.range||calcRange(pts.map(p=>p.v).concat(bench.map(p=>p.v),marks.map(m=>m.v),[base]));
+  const lo=rg.lo, hi=rg.hi;
   const x0=pts[0].x, x1=pts[pts.length-1].x;
   const X=x=>3+(x1===x0?0.5:(x-x0)/(x1-x0))*(W-12), Y=v=>pT+(1-(v-lo)/(hi-lo))*(H-pT-pB);
   const last=pts[pts.length-1].v, col=last>=base?"var(--up)":"var(--down)";
   const path=a=>a.map((p,i)=>(i?"L":"M")+X(p.x).toFixed(1)+" "+Y(p.v).toFixed(1)).join(" ");
+  const pctAxis=()=>{ const rl=(lo/base-1)*100, rh=(hi/base-1)*100, span=rh-rl;
+    const st=[0.25,0.5,1,2,5,10,20,50,100].find(x=>span/x<=4)||200; let o="";
+    for(let k=Math.ceil(rl/st);k*st<=rh;k++){ if(k===0) continue; const y=Y(base*(1+k*st/100)); if(y<pT-4||y>H-pB+4) continue;
+      o+=`<line x1="0" x2="${W}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="3" y="${(y-3).toFixed(1)}" font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${k>0?"+":"−"}${Math.abs(k*st)}%</text>`; }
+    const y0=Y(base); return o+`<text x="3" y="${(y0-4).toFixed(1)}" font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, monospace">0%</text>`; };
   box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.aria||"Price chart")}">
     <rect class="sel" x="0" y="0" width="0" height="${H}" fill="var(--ink)" fill-opacity=".07" visibility="hidden"/>
     <line x1="2" x2="${W-2}" y1="${Y(base).toFixed(1)}" y2="${Y(base).toFixed(1)}" stroke="var(--muted)" stroke-opacity=".5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 7"/>
-    ${bench.length>1?`<path d="${path(bench)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>`:""}
+    ${opts.pctAxis?pctAxis():""}
+    ${bench.length>1?`<g opacity="${opts.benchOpacity==null?1:opts.benchOpacity}"><path d="${path(bench)}" fill="none" stroke="var(--bench)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${X(bench[bench.length-1].x).toFixed(1)}" cy="${Y(bench[bench.length-1].v).toFixed(1)}" r="3.5" fill="var(--bench)"/></g>`:""}
     ${hl.map(l=>{
       if(l.v>=lo && l.v<=hi){  // inside the visible range: dashed line
         const y=Y(l.v).toFixed(1), ty=Math.max(11,Math.min(H-4,+y+(l.below?13:-5)));
@@ -495,6 +505,7 @@ function lineChart(box,pts,base,opts){
   hit.addEventListener("pointerup",e=>{ if(!A) return; const b=nearest(e); frozen=b!==A; if(!frozen){ hideSel(); } A=null; });
   hit.addEventListener("pointermove",mv);
   hit.addEventListener("pointerleave",lv); hit.addEventListener("pointercancel",()=>{ A=null; lv(); });
+  return {lo,hi};
 }
 
 /* ---------- portfolio over the selected period ---------- */
@@ -614,19 +625,33 @@ function benchSeries(R){
 }
 
 /* ---------- main chart ---------- */
-function renderChart(C,R){
+let chartRangeNow=null;
+function toggleBench(on){
+  const from=chartRangeNow; S.showBench=on;
+  const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(!from||reduce||!lastC){ render(); return; }
+  const R=rangePoints(lastC); if(R.pts.length<2){ render(); return; }
+  const B=benchSeries(R);
+  const to=calcRange(R.pts.map(p=>p.v).concat(on?B.map(p=>p.v):[],[R.base]));
+  const t0=performance.now(), D=320;
+  const step=now=>{ const k=Math.min(1,(now-t0)/D), e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    renderChart(lastC,R,{range:{lo:from.lo+(to.lo-from.lo)*e,hi:from.hi+(to.hi-from.hi)*e},op:on?e:1-e});
+    if(k<1) requestAnimationFrame(step); else render(); };
+  requestAnimationFrame(step);
+}
+function renderChart(C,R,anim){
   document.querySelectorAll("#ranges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.range)));
   const area=$("#chartArea");
   if(R.pts.length<2){
     area.innerHTML=`<div class="chart-empty">${R.intraday?"The 1-day chart fills in with the next price update.":"The chart fills in as soon as there are prices from two different days."}</div>`;
     $("#legend").hidden=true; return;
   }
-  const benchAll=benchSeries(R), bench=S.showBench?benchAll:[];
-  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; render(); /* chart line off by default every time the site opens */ }; }
+  const benchAll=benchSeries(R), bench=(S.showBench||anim)?benchAll:[];
+  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>toggleBench(tg.checked); /* chart line off by default every time the site opens */ }
   $("#legend").hidden=!(bench.length>1);
   const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
-  lineChart(area,R.pts,R.base,{bench,scaleWith:benchAll.map(p=>p.v),aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
+  chartRangeNow=lineChart(area,R.pts,R.base,{bench,range:anim&&anim.range,benchOpacity:anim?anim.op:1,pctAxis:S.showBench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
     onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); paintBm(a,b); }});
 }
 
