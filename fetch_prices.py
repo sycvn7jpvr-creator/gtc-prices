@@ -88,6 +88,9 @@ def main():
                 continue
             if lb is None:
                 lb = {"p": rows[-1][2], "d": rows[-1][0], "t": None}
+            same_day = next((row for row in rows if row[0] == lb["d"]), None)
+            if same_day and same_day[2]:  # daily close includes the closing auction
+                lb["p"] = same_day[2]
             prev = next((row[2] for row in reversed(rows) if row[0] < lb["d"]), None)
             today_open = next((row[1] for row in rows if row[0] == lb["d"]), None)
             latest["px"][bbg] = dict(lb, y=sym, ccy=ccy, prev=prev, o=today_open)
