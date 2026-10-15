@@ -572,19 +572,32 @@ function lineChart(box,pts,base,opts){
     selT.textContent=fmtPct(p.v?d/p.v:0); selT.setAttribute("fill",rc);
     selT.setAttribute("x",Math.min(W-30,Math.max(30,(x1+x2)/2))); selT.setAttribute("visibility",x2-x1>4?"visible":"hidden");
     if(opts.onRange) opts.onRange(p,q); };
-  let A=null, frozen=false, pend=null, raf=0, lastPt=null;
-  const frame=()=>{ raf=0; const e=pend; if(!e) return;
+  /* the line is moved inside the touch/mouse event itself (no wait for the next frame), and placed where the
+     finger will be when the frame reaches the screen: the browser's own prediction where available
+     (Chrome, Edge, Android), else a short velocity look-ahead; it settles on the exact spot as soon as you stop */
+  let A=null, frozen=false, lastPt=null, vx=0, lastX=null, lastT=0, settle=0;
+  const LEAD=16, MAXLEAD=24;  /* ms ahead, css px cap */
+  const apply=(cx,buttons)=>{ const e={clientX:cx};
     const x=svgX(e), b=nearest(e);
-    if(A && (e.buttons&1)){ putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; showRange(A,b); } return; }
+    if(A && (buttons&1)){ putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; showRange(A,b); } return; }
     if(frozen) return;
     putCur(x,yAt(x));
     if(opts.onScrub){ const [i,j]=idxAt(x), t=XS[j]===XS[i]?0:(x-XS[i])/(XS[j]-XS[i]);
       opts.onScrub({v:pts[i].v+(pts[j].v-pts[i].v)*t, x:pts[i].x+(pts[j].x-pts[i].x)*t, label:b.label}); } };
-  const mv=e=>{ pend={clientX:e.clientX,buttons:e.buttons}; if(!raf) raf=requestAnimationFrame(frame); };
-  const lv=()=>{ if(A) return; pend=null; lastPt=null; frozen=false; rect=null; curOn=false; hideSel(); xh.style.visibility="hidden"; scrubbing=false; if(opts.onLeave) opts.onLeave();
+  const mv=e=>{
+    const cx=e.clientX, t=e.timeStamp;
+    if(lastX==null || t-lastT>=100){ vx=0; lastX=cx; lastT=t; }
+    else if(t-lastT>=4){ const v=(cx-lastX)/(t-lastT); vx=vx*0.4+v*0.6; lastX=cx; lastT=t; }  /* events closer than 4 ms: keep the speed, avoid spikes */
+    let px=cx; const pr=e.getPredictedEvents?e.getPredictedEvents():[];
+    if(pr && pr.length) px=pr[pr.length-1].clientX;
+    else px=cx+Math.max(-MAXLEAD,Math.min(MAXLEAD,vx*LEAD));
+    apply(px,e.buttons);
+    clearTimeout(settle); const bt=e.buttons;
+    if(px!==cx) settle=setTimeout(()=>{ if(curOn){ vx=0; apply(cx,bt); } },50); };
+  const lv=()=>{ if(A) return; clearTimeout(settle); lastX=null; vx=0; lastPt=null; frozen=false; rect=null; curOn=false; hideSel(); xh.style.visibility="hidden"; scrubbing=false; if(opts.onLeave) opts.onLeave();
     if(renderDeferred){ renderDeferred=false; setTimeout(render,0); } };
   hit.addEventListener("pointerenter",measure);
-  hit.addEventListener("pointerdown",e=>{ measure();
+  hit.addEventListener("pointerdown",e=>{ measure(); lastX=null; vx=0;
     if(e.pointerType==="mouse"){ frozen=false; hideSel(); A=nearest(e); try{hit.setPointerCapture(e.pointerId);}catch(_){} }
     mv(e); });
   hit.addEventListener("pointerup",e=>{ if(!A) return; const b=nearest(e); frozen=b!==A; if(!frozen){ hideSel(); } A=null; });
