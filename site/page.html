@@ -98,6 +98,12 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
+.mg{grid-column:1/-1;margin-top:6px}
+.mg-none{height:0;margin:0}
+.mg-bar{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--down) 0%,var(--down-soft) 30%,var(--sunk) 50%,var(--up-soft) 70%,var(--up) 100%)}
+.mg-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translate(-50%,-50%)}
+.mg-entry{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--muted);transform:translateX(-50%)}
+.mg-lab{display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-top:4px}
 .pill.hit{background:var(--alert-bg);color:var(--alert-fg)}
 .alertbox{background:var(--alert-bg);color:var(--alert-fg);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(217,45,32,.35)}
 .al-h{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:17px}
@@ -809,6 +815,18 @@ function renderNotice(C){
   const b=$("#goFills"); if(b) b.onclick=()=>{ setTab("trades"); };
 }
 
+/* compact SL → TP bar for the position list: dot = current price, tick = entry */
+function miniGauge(p){
+  const LV=S.levels[p.ticker], px=p.px;
+  if(!LV||!(LV.target>LV.stop)||!(px>0)) return `<div class="mg mg-none"></div>`;
+  const pos=v=>Math.max(0,Math.min(100,(v-LV.stop)/(LV.target-LV.stop)*100));
+  const fills=effTrades().filter(t=>t.ticker===p.ticker&&t.side==="BUY"&&t.price>0);
+  const entry=fills.length?fills.reduce((a,t)=>a+t.price*(+t.usd||0),0)/fills.reduce((a,t)=>a+(+t.usd||0),0):null;
+  const ds=LV.stop/px-1, dt=LV.target/px-1;
+  return `<div class="mg" title="SL ${nPx(LV.stop)} (${fmtPct(ds)}) · TP ${nPx(LV.target)} (${fmtPct(dt)})">
+    <div class="mg-bar">${entry?`<i class="mg-entry" style="left:${pos(entry)}%"></i>`:""}<i class="mg-dot" style="left:${pos(px)}%"></i></div>
+    <div class="mg-lab num"><span class="down">SL ${fmtPct(ds)}</span><span class="up">TP ${fmtPct(dt)}</span></div></div>`;
+}
 function renderOverview(C){
   const n=C.now, tot=n.total||1;
   const ps=n.positions.slice().sort((a,b)=>b.value-a.value);
@@ -831,7 +849,7 @@ function renderOverview(C){
         <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}${S.hits&&S.hits[p.ticker]?`<span class="pill hit">${S.hits[p.ticker]} HIT</span>`:""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
         <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
-      <div class="wbar" title="${n2.format(w*100)}% of portfolio"><i class="${w>0.2?"over":""}" style="width:${Math.min(100,w/0.25*100)}%"></i><u style="left:80%"></u></div>
+      ${miniGauge(p)}
     </button>`;
   }).join("");
   if(!ps.length) rows=`<div class="empty">No positions yet. Tap <b>+ Trade</b> to log your first buy.</div>`;
@@ -844,7 +862,7 @@ function renderOverview(C){
     <div><small>Realized</small><b class="${cls(n.realized)}">${fmtUsdS(n.realized).replace(/\.\d\d$/,"")}</b></div>
   </section>
   <section class="sec">
-    <div class="sec-h"><h2>Positions</h2><span>${ps.length} name${ps.length===1?"":"s"} · bar = weight, line = 20% cap</span></div>
+    <div class="sec-h"><h2>Positions</h2><span>${ps.length} name${ps.length===1?"":"s"} · bar = stop loss → take profit</span></div>
     <div class="list">${rows}${cashRow}</div>
   </section>
   ${renderMarkets(C)}`;
