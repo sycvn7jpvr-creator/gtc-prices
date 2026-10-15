@@ -95,6 +95,15 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
+.lvtog{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;cursor:pointer;user-select:none;width:max-content}
+.lvtog input{position:absolute;opacity:0;width:1px;height:1px}
+.lvtog .sw{width:40px;height:24px;border-radius:12px;background:var(--line);position:relative;transition:background .15s;flex:none}
+.lvtog .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.lvtog input:checked+.sw{background:var(--accent)}
+.lvtog input:checked+.sw::after{transform:translateX(16px)}
+.lvtog input:focus-visible+.sw{outline:2px solid var(--accent);outline-offset:2px}
+.lvinfo{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:13px;font-weight:600;margin-top:-4px}
+.lvinfo b{font-weight:700}
 a.row.news{display:block;color:inherit;text-decoration:none}
 .nf{display:flex;gap:8px;align-items:stretch}
 .nf-all{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;font-weight:700;color:var(--muted)}
@@ -217,9 +226,9 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all"
+  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:false
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; S.showLevels=localStorage.getItem("gtc.lv")==="1"; }catch(e){}
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -397,8 +406,8 @@ function valueAt(cv,d){ let r=null; for(const p of cv){ if(p.date<=d) r=p.v; } r
 function lineChart(box,pts,base,opts){
   opts=opts||{};
   const W=Math.max(260,box.clientWidth||400), H=opts.h||190, pT=14, pB=14;
-  const marks=opts.markers||[], bench=opts.bench||[];
-  const all=pts.map(p=>p.v).concat(bench.map(p=>p.v),marks.map(m=>m.v),[base]);
+  const marks=opts.markers||[], bench=opts.bench||[], hl=opts.levels||[];
+  const all=pts.map(p=>p.v).concat(bench.map(p=>p.v),marks.map(m=>m.v),hl.map(l=>l.v),[base]);
   let lo=Math.min(...all), hi=Math.max(...all);
   if(hi-lo<=0){ const e=Math.abs(hi)*0.01||1; hi+=e; lo-=e; }
   const pad=(hi-lo)*0.1; lo-=pad; hi+=pad;
@@ -410,6 +419,9 @@ function lineChart(box,pts,base,opts){
     <rect class="sel" x="0" y="0" width="0" height="${H}" fill="var(--ink)" fill-opacity=".07" visibility="hidden"/>
     <line x1="2" x2="${W-2}" y1="${Y(base).toFixed(1)}" y2="${Y(base).toFixed(1)}" stroke="var(--muted)" stroke-opacity=".5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 7"/>
     ${bench.length>1?`<path d="${path(bench)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>`:""}
+    ${hl.map(l=>{ const y=Y(l.v).toFixed(1), ty=Math.max(11,Math.min(H-4,+y+(l.below?13:-5)));
+      return `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="${l.color}" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="${W-4}" y="${ty}" text-anchor="end" font-size="11" font-weight="700" fill="${l.color}" font-family="IBM Plex Mono, monospace">${esc(l.label)}</text>`; }).join("")}
     <path d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${marks.map(m=>`<circle cx="${X(m.x).toFixed(1)}" cy="${Y(m.v).toFixed(1)}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`).join("")}
     <circle cx="${X(pts[pts.length-1].x).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="4" fill="${col}"/>
@@ -881,6 +893,8 @@ function openPosition(tk,C){
     <div class="ranges" id="sRanges"><button data-r="1d">1D</button><button data-r="1w">1W</button><button data-r="1m">1M</button><button data-r="ytd">YTD</button><button data-r="1y">1Y</button><button data-r="max">Max</button></div>
     <div id="sChart"></div>
     <div class="fresh" id="sNote"></div>
+    ${S.levels[tk]?`<label class="lvtog" for="lvT"><input type="checkbox" id="lvT" ${S.showLevels?"checked":""}><span class="sw" aria-hidden="true"></span><span>Stop loss &amp; take profit</span></label>
+    <div class="lvinfo" id="lvInfo"></div>`:""}
     <div class="eyebrow">Your position</div>
     <div class="stats num" style="box-shadow:none;border:1px solid var(--line)">
       <div><small>Value</small><b>${usd0.format(p.value)}</b></div>
@@ -909,11 +923,20 @@ function openPosition(tk,C){
     }
     const marks=s.intraday?[]:buys.filter(b=>b.effDate>=s.pts[0].date).map(b=>({x:dayNum(b.effDate),v:b.price}));
     paint();
-    lineChart(box,s.pts,s.base,{h:180,markers:marks,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
+    const LV=S.levels[tk], cur=s.pts[s.pts.length-1].v;
+    const levels=LV&&S.showLevels?[{v:LV.stop,label:"SL "+nPx(LV.stop),color:"var(--down)",below:true},{v:LV.target,label:"TP "+nPx(LV.target),color:"var(--up)"}].filter(l=>l.v>0):[];
+    const li=$("#lvInfo");
+    if(li){ if(LV&&S.showLevels){
+        const px=(L&&L.p)||cur, ds=LV.stop/px-1, dt=LV.target/px-1;
+        const state= px<=LV.stop?'<span class="pill sell">STOP HIT</span>':px>=LV.target?'<span class="pill buy">TARGET HIT</span>':"";
+        li.innerHTML=`${state}<span class="down">Stop ${esc(fmtLocal(LV.stop,p.ccy))} <b>${fmtPct(ds)}</b></span><span class="up">Target ${esc(fmtLocal(LV.target,p.ccy))} <b>${fmtPct(dt)}</b></span>`;
+        li.hidden=false; } else li.hidden=true; }
+    lineChart(box,s.pts,s.base,{h:180,markers:marks,levels,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
       onRange:(a,b)=>{ $("#sBig").innerHTML=esc(fmtLocal(b.v,p.ccy)); $("#sChg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>fmtLocal(x,p.ccy)); }});
     $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
   };
   document.querySelectorAll("#sRanges button").forEach(b=>b.onclick=()=>{ S.stockRange=b.dataset.r; try{localStorage.setItem("gtc.srange",S.stockRange);}catch(e){} draw(); });
+  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked; try{localStorage.setItem("gtc.lv",lt.checked?"1":"0");}catch(e){} draw(); };
   draw();
 }
 
@@ -1111,8 +1134,8 @@ async function staticBoot(){
   S.canWrite=false;
   const get=async f=>{ try{ const r=await fetch("data/"+f+"?t="+Date.now(),{cache:"no-store"}); return r.ok? await r.json():null; }catch(e){ return null; } };
   const load=async()=>{
-    const [tr,st,pr,la,hi,nw]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json","news.json"].map(get));
-    S.news=nw;
+    const [tr,st,pr,la,hi,nw,lv]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json","news.json","levels.json"].map(get));
+    S.news=nw; S.levels=lv||{};
     if(!Array.isArray(tr)){ S.dbState="none"; render(); return; }
     S.trades=tr; S.prices=Array.isArray(pr)?pr:[]; if(st) S.settings=Object.assign({},S.settings,st);
     S.market={latest:la,history:hi}; S.got={trades:true,prices:true}; S.dbState="ok";
@@ -1148,6 +1171,7 @@ async function staticBoot(){
   db.collection("trades").onSnapshot(s=>{ S.trades=s.docs.map(d=>Object.assign({},d.data(),{id:d.id})); S.got.trades=true; render(); }, onErr);
   db.collection("prices").onSnapshot(s=>{ S.prices=s.docs.map(d=>Object.assign({},d.data(),{date:d.id})); S.got.prices=true; render(); }, onErr);
   db.collection("market").onSnapshot(s=>{ const m={latest:null,history:null}; s.docs.forEach(d=>{ if(d.id in m) m[d.id]=d.data(); }); S.market=m; render(); }, onErr);
+  db.doc("settings/levels").onSnapshot(s=>{ S.levels=s.exists?(s.data()||{}):{}; render(); }, onErr);
   db.doc("settings/main").onSnapshot(s=>{ if(s.exists) S.settings=Object.assign({},S.settings,s.data()); render(); }, onErr);
 })();
 })();
