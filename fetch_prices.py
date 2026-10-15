@@ -56,13 +56,18 @@ def daily(sym, scale):
     return [[i.strftime("%Y-%m-%d"), r(o / scale), r(c / scale)] for i, o, c in zip(h.index, h["Open"], h["Close"])]
 
 
+INTRA_FROM = dt.datetime.now(dt.timezone.utc).timestamp() - 30 * 3600
+
+
 def last_bar(sym, scale):
+    """Latest 15-min bar, plus all 15-min closes from the last 30 hours (for the 1-day chart)."""
     h = yf.Ticker(sym).history(period="5d", interval="15m", auto_adjust=False).dropna(subset=["Close"])
     if h.empty:
         return None
     t = h.index[-1]
+    intra = [[int(i.timestamp()), r(c / scale)] for i, c in zip(h.index, h["Close"]) if i.timestamp() >= INTRA_FROM]
     return {"p": r(h["Close"].iloc[-1] / scale), "d": t.strftime("%Y-%m-%d"),
-            "t": t.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")}
+            "t": t.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"), "i": intra}
 
 
 def main():
@@ -103,7 +108,7 @@ def main():
         try:
             rows = daily(sym, 1.0)
             lb = last_bar(sym, 1.0) or {"p": rows[-1][2], "d": rows[-1][0], "t": None}
-            latest["fx"][ccy] = {"v": lb["p"], "d": lb["d"], "t": lb["t"]}
+            latest["fx"][ccy] = {"v": lb["p"], "d": lb["d"], "t": lb["t"], "i": lb.get("i", [])}
             hist["fx"][ccy] = [[d, c] for d, o, c in rows if d < today]
         except Exception as e:
             latest["errors"].append(f"FX {ccy}: {type(e).__name__}: {e}"[:200])
