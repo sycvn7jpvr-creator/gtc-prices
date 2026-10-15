@@ -1,0 +1,11 @@
+# Bloomberg tickers as used in TMSG, one per line
+CMBT BB
+9147 JT
+8150 TT
+OERL SE
+S92 GY
+BRAV SS
+MTRN UN
+LIND UR
+6856 JT
+VAC UN
