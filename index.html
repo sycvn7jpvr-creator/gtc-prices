@@ -983,7 +983,7 @@ function openPosition(tk,C){
     $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
   };
   document.querySelectorAll("#sRanges button").forEach(b=>b.onclick=()=>{ S.stockRange=b.dataset.r; try{localStorage.setItem("gtc.srange",S.stockRange);}catch(e){} draw(); });
-  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked; draw();  // on by default every time the site opens };
+  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked; draw(); /* on by default every time the site opens */ };
   draw();
 }
 
