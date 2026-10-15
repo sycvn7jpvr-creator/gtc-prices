@@ -50,7 +50,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .chg{display:flex;flex-wrap:wrap;gap:6px 14px;font-weight:600}
 .chg span small{font-weight:500;color:var(--muted);margin-left:4px}
 .fresh{font-size:12px;color:var(--muted)}
-.bmline{min-height:1.5em}
 .chg span{white-space:nowrap}
 .mouse-only{display:none}
 @media (hover:hover) and (pointer:fine){.mouse-only{display:block}}
@@ -111,8 +110,9 @@ button.row:hover{background:var(--sunk)}
 .tabs button.alert{color:var(--alert-bg)}
 .tabs button.alert[aria-selected="true"]{color:var(--alert-bg)}
 .bang{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--alert-bg);color:var(--alert-fg);font-size:12px;font-weight:800;margin-left:4px;vertical-align:1px}
-.chart-foot{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
-.chart-foot .legend{margin:0}
+.chart-foot{display:flex;flex-wrap:nowrap;gap:14px;align-items:center;min-height:28px}
+.chart-foot .legend{margin:0;min-width:0;white-space:nowrap;overflow:hidden;font-size:13px;font-weight:600}
+.chart-foot .legend b{font-weight:700}
 .lvtog{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;cursor:pointer;user-select:none;width:max-content}
 .lvtog input{position:absolute;opacity:0;width:1px;height:1px}
 .lvtog .sw{width:40px;height:24px;border-radius:12px;background:var(--line);position:relative;transition:background .15s;flex:none}
@@ -210,7 +210,6 @@ label.f .hint{font-weight:400;font-size:12px}
       <div class="eyebrow">Portfolio value</div>
       <div class="big num" id="total">$1,000,000<span class="cents">.00</span></div>
       <div class="chg num" id="chg"></div>
-      <div class="chg num bmline" id="bmLine"></div>
     </section>
     <div class="clock">
       <span class="eyebrow" id="clockLbl">Challenge</span>
@@ -228,8 +227,8 @@ label.f .hint{font-weight:400;font-size:12px}
     </div>
     <div id="chartArea"><div class="chart-empty">Loading your trades…</div></div>
     <div class="chart-foot">
-      <label class="lvtog" for="bmT"><input type="checkbox" id="bmT"><span class="sw" aria-hidden="true"></span><span>Compare with WLS Index</span></label>
-      <div class="legend" id="legend" hidden><span><i></i><span id="bmName">WLS Index</span></span></div>
+      <label class="lvtog" for="bmT"><input type="checkbox" id="bmT"><span class="sw" aria-hidden="true"></span><span>Compare with WLS</span></label>
+      <div class="legend num" id="legend" hidden title="WLS proxy: iShares MSCI ACWI ETF, same period as the chart"><i></i><span>WLS <b id="bmVal"></b></span></div>
     </div>
     <div class="fresh mouse-only">Tip: click and drag across the chart to see the change between two points.</div>
   </section>
@@ -574,11 +573,11 @@ function chgLine(d,base,label,money){
 let heroState=null;
 function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
 function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
-  const h=heroState, B=h&&h.bench, el=$("#bmLine"); if(!el) return;
+  const h=heroState, B=h&&h.bench, el=$("#bmVal"); if(!el) return;
   if(!S.showBench||!B||B.length<2||!a||!b){ el.innerHTML=""; return; }
   const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
   const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
-  el.innerHTML=`<span class="${cls(br)}" style="font-weight:600">WLS ${fmtPct(br)}<small>same period</small></span>`;
+  el.className=cls(br); el.textContent=fmtPct(br);
 }
 function paintHero(v,label,x){
   const h=heroState; if(!h) return;
@@ -623,7 +622,6 @@ function renderChart(C,R){
   const benchAll=benchSeries(R), bench=S.showBench?benchAll:[];
   const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; render(); /* on by default every time the site opens */ }; }
   $("#legend").hidden=!(bench.length>1);
-  const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
   lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
     onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); paintBm(a,b); }});
@@ -1239,7 +1237,7 @@ async function staticBoot(){
     if(!Array.isArray(tr)){ S.dbState="none"; render(); return; }
     S.trades=tr; S.prices=Array.isArray(pr)?pr:[]; if(st) S.settings=Object.assign({},S.settings,st);
     S.market={latest:la,history:hi}; S.got={trades:true,prices:true}; S.dbState="ok";
-    $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~6 minutes.";
+    $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~6 minutes. The WLS line uses the MSCI ACWI ETF as a stand-in for Bloomberg's WLS Index.";
     if(!document.querySelector("#nfPop:not([hidden])")) render();  // don't close the stock picker mid-search
   };
   // live updates: poll a tiny stamp file; reload the data only when it changed
