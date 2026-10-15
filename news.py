@@ -20,7 +20,7 @@ from fetch_prices import to_yahoo
 ROOT = Path(__file__).parent
 OUT = ROOT / "data" / "news.json"
 MAX_AGE_DAYS = 14
-PER_STOCK = 8
+PER_STOCK = 12
 
 
 def fresh_enough():
