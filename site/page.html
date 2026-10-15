@@ -96,12 +96,24 @@ button.row:hover{background:var(--sunk)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
 a.row.news{display:block;color:inherit;text-decoration:none}
-.nfilter{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-.nfilter::-webkit-scrollbar{display:none}
-.nfilter button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
-.nfilter button b{font-weight:500;color:var(--muted);margin-left:2px}
-.nfilter button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.nfilter button[aria-pressed="true"] b{color:var(--bg);opacity:.7}
+.nf{display:flex;gap:8px;align-items:stretch}
+.nf-all{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;font-weight:700;color:var(--muted)}
+.nf-all b{font-weight:500;margin-left:4px;opacity:.7}
+.nf-all[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.nf-dd{position:relative;flex:1;min-width:0}
+.nf-btn{width:100%;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;font-weight:600;color:var(--muted);text-align:left}
+.nf-btn.on{border-color:var(--accent);color:var(--ink);background:var(--accent-soft)}
+.nf-btn .nf-cur{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nf-btn i,.nf-list i{font-style:normal;font-size:11px;color:var(--accent)}
+.nf-btn[aria-expanded="true"] .nf-chev{transform:rotate(180deg)}
+.nf-pop{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:8;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:6px}
+.nf-pop[hidden]{display:none}
+.nf-pop input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+.nf-list{max-height:300px;overflow:auto;display:flex;flex-direction:column}
+.nf-list button{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;border:0;background:transparent;border-radius:9px;padding:9px 10px;text-align:left;font-weight:600}
+.nf-list button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nf-list button b{font-weight:500;color:var(--muted);font-size:13px;min-width:1.5em;text-align:right}
+.nf-list button:hover,.nf-list button[aria-selected="true"]{background:var(--sunk)}
 a.row.news:hover{background:var(--sunk)}
 .news-t{white-space:normal;line-height:1.35;font-weight:600}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -623,14 +635,35 @@ function renderNews(C){
   if(S.newsFilter!=="all" && !held.some(p=>p.ticker===S.newsFilter)) S.newsFilter="all";
   for(const p of held) if(S.newsFilter==="all"||S.newsFilter===p.ticker) for(const n of newsFor(p.ticker)) all.push({n,stock:{name:p.name||p.ticker,ticker:p.ticker}});
   all.sort((a,b)=>b.n.ts-a.n.ts);
-  const filt=`<div class="nfilter" role="group" aria-label="Filter news by stock">
-    <button type="button" data-nf="all" aria-pressed="${S.newsFilter==="all"}">All</button>
-    ${held.map(p=>`<button type="button" data-nf="${esc(p.ticker)}" aria-pressed="${S.newsFilter===p.ticker}">${esc(p.name||p.ticker)} <b>${newsFor(p.ticker).length}</b></button>`).join("")}</div>`;
+  const total=held.reduce((s,p)=>s+newsFor(p.ticker).length,0), cur=held.find(p=>p.ticker===S.newsFilter);
+  const filt=`<div class="nf">
+    <button type="button" class="nf-all" data-nf="all" aria-pressed="${S.newsFilter==="all"}">All <b>${total}</b></button>
+    <div class="nf-dd">
+      <button type="button" class="nf-btn${cur?" on":""}" id="nfBtn" aria-haspopup="listbox" aria-expanded="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span class="nf-cur">${cur?esc(cur.name||cur.ticker):"Choose a stock"}</span>${cur?`<i class="mono">${esc(cur.ticker)}</i>`:""}
+        <svg class="nf-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="nf-pop" id="nfPop" hidden>
+        <input id="nfQ" type="search" placeholder="Type a name or ticker…" autocomplete="off">
+        <div class="nf-list" id="nfList" role="listbox">${held.map(p=>`<button type="button" role="option" data-nf="${esc(p.ticker)}" data-q="${esc(((p.name||"")+" "+p.ticker).toLowerCase())}" aria-selected="${S.newsFilter===p.ticker}"><span>${esc(p.name||p.ticker)}</span><i class="mono">${esc(p.ticker)}</i><b>${newsFor(p.ticker).length}</b></button>`).join("")}</div>
+      </div>
+    </div></div>`;
   $("#view").innerHTML=`<section class="sec"><div class="sec-h"><h2>News</h2><span>${S.news&&S.news.updated?"updated "+ago(Date.parse(S.news.updated)/1000):""}</span></div>
     ${held.length?filt:""}
     <div class="list">${all.length?all.slice(0,60).map(x=>newsRow(x.n,S.newsFilter==="all"?x.stock:null)).join(""):`<div class="empty">${S.news?"No headlines in the last 14 days.":"Headlines appear on the public site and refresh every few minutes."}</div>`}</div>
     <p class="foot" style="text-align:left;margin:0">Headlines from Yahoo Finance and Google News for the stocks you hold, last 14 days. Tap one to read it on the publisher's site. Matching is by company name, so now and then an unrelated story slips in.</p></section>`;
-  document.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>{ S.newsFilter=b.dataset.nf; try{localStorage.setItem("gtc.nf",S.newsFilter);}catch(e){} render(); });
+  const pick=v=>{ S.newsFilter=v; try{localStorage.setItem("gtc.nf",v);}catch(e){} render(); };
+  document.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>pick(b.dataset.nf));
+  const btn=$("#nfBtn"), pop=$("#nfPop"), q=$("#nfQ");
+  if(!btn) return;
+  const close=()=>{ pop.hidden=true; btn.setAttribute("aria-expanded","false"); document.removeEventListener("click",outside,true); };
+  const outside=e=>{ if(!pop.contains(e.target)&&!btn.contains(e.target)) close(); };
+  btn.onclick=()=>{ if(!pop.hidden) return close(); pop.hidden=false; btn.setAttribute("aria-expanded","true"); q.value=""; filterList(); q.focus(); document.addEventListener("click",outside,true); };
+  const items=()=>[...pop.querySelectorAll("[data-q]")];
+  const filterList=()=>{ const t=q.value.trim().toLowerCase(); items().forEach(b=>b.hidden=!!t&&!b.dataset.q.includes(t)); };
+  q.oninput=filterList;
+  q.onkeydown=e=>{ if(e.key==="Escape") close(); if(e.key==="Enter"){ const f=items().find(b=>!b.hidden); if(f) pick(f.dataset.nf); } };
 }
 
 /* ---------- views ---------- */
@@ -1084,7 +1117,7 @@ async function staticBoot(){
     S.trades=tr; S.prices=Array.isArray(pr)?pr:[]; if(st) S.settings=Object.assign({},S.settings,st);
     S.market={latest:la,history:hi}; S.got={trades:true,prices:true}; S.dbState="ok";
     $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~6 minutes.";
-    render();
+    if(!document.querySelector("#nfPop:not([hidden])")) render();  // don't close the stock picker mid-search
   };
   await load(); setInterval(load,60*1000);
 }
