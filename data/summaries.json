@@ -1,1 +1,1 @@
-{"items":{},"status":{"day":"2026-10-15","calls":0,"error":"RuntimeError: HTTP 200: b'OK\\r\\n'"},"updated":"2026-10-15T08:56:28Z"}
+{"items":{},"status":{"day":"2026-10-15","calls":0,"error":"RuntimeError: models.github.ai openai/gpt-4.1-mini: HTTP 200: b'OK\\r\\n' || models.github.ai openai/gpt-4o-mini: HTTP 200: b'OK\\r\\n' || <urlopen error [Errno -2] Name or service not known>"},"updated":"2026-10-15T08:57:42Z"}
