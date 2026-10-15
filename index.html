@@ -948,7 +948,7 @@ function openPosition(tk,C){
     const s=stockSeries(tk), box=$("#sChart");
     const paint=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
       const X=L&&L.ext&&L.ext.base>0?L.ext:null;
-      $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label)+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
+      $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label,x=>fmtLocal(x,p.ccy))+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
     if(s.pts.length<2){
       $("#sBig").innerHTML=p.px?esc(fmtLocal(p.px,p.ccy)):"–"; $("#sChg").innerHTML="";
       box.innerHTML=`<div class="chart-empty">${S.stockRange==="1d"||S.stockRange==="1w"?"Intraday prices arrive with the next price update.":"Price history appears once the price feed has data for "+esc(tk)+"."}</div>`;
