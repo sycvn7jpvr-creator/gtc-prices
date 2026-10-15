@@ -49,6 +49,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .chg{display:flex;flex-wrap:wrap;gap:6px 14px;font-weight:600}
 .chg span small{font-weight:500;color:var(--muted);margin-left:4px}
 .fresh{font-size:12px;color:var(--muted)}
+.bmline{min-height:1.5em}
+.chg span{white-space:nowrap}
 .mouse-only{display:none}
 @media (hover:hover) and (pointer:fine){.mouse-only{display:block}}
 .sh-name{font-weight:600;font-size:16px;color:var(--muted)}
@@ -185,6 +187,7 @@ label.f .hint{font-weight:400;font-size:12px}
       <div class="eyebrow">Portfolio value</div>
       <div class="big num" id="total">$1,000,000<span class="cents">.00</span></div>
       <div class="chg num" id="chg"></div>
+      <div class="chg num bmline" id="bmLine"></div>
     </section>
     <div class="clock">
       <span class="eyebrow" id="clockLbl">Challenge</span>
@@ -540,14 +543,23 @@ function chgLine(d,base,label,money){
   return `<span class="${cls(d)}">${arrow} ${money?money(Math.abs(d))+" · ":""}${n2.format(Math.abs(r*100))}%<small>${esc(label)}</small></span>`;
 }
 let heroState=null;
-function paintHero(v,label){
+function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
+function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
+  const h=heroState, B=h&&h.bench, el=$("#bmLine"); if(!el) return;
+  if(!B||B.length<2||!a||!b){ el.innerHTML=""; return; }
+  const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
+  const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
+  el.innerHTML=`<span class="${cls(br)}" style="font-weight:600">WLS ${fmtPct(br)}<small>same period</small></span><span class="${cls(ex)}">${sign(ex)}${n2.format(Math.abs(ex*100))} pp<small>vs WLS</small></span>`;
+}
+function paintHero(v,label,x){
   const h=heroState; if(!h) return;
   const val=v==null?h.tot:v;
   $("#total").innerHTML=bigMoney(val);
-  $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x))+(v==null?h.extra:"");
+  $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x));
+  const P=h.pts; if(P&&P.length) paintBm({x:P[0].x,v:h.base}, v==null?P[P.length-1]:{x,v});
 }
 function renderHero(C,R){
-  heroState={tot:C.now.total,base:R.base,label:R.label,extra:""};
+  heroState={tot:C.now.total,base:R.base,label:R.label,bench:null,pts:R.pts};
   paintHero();
   const up=S.market.latest&&S.market.latest.updated;
   $("#fresh").textContent = up ? (()=>{ const m=Math.round((Date.now()-Date.parse(up))/60000);
@@ -579,19 +591,13 @@ function renderChart(C,R){
     area.innerHTML=`<div class="chart-empty">${R.intraday?"The 1-day chart fills in with the next price update.":"The chart fills in as soon as there are prices from two different days."}</div>`;
     $("#legend").hidden=true; return;
   }
-  const bench=S.showBench?benchSeries(R):[];
+  const benchAll=benchSeries(R), bench=S.showBench?benchAll:[];
   const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; try{localStorage.setItem("gtc.bm",tg.checked?"1":"0");}catch(e){} render(); }; }
   $("#legend").hidden=!(bench.length>1);
   const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
-  if(heroState){
-    if(bench.length>1){
-      const b0=bench[0].v, b1=bench[bench.length-1].v, br=b1/b0-1, pr=R.pts[R.pts.length-1].v/R.pts[0].v-1, ex=pr-br;
-      heroState.extra=`<span class="${cls(br)}" style="font-weight:600">WLS ${fmtPct(br)}<small>same period</small></span><span class="${cls(ex)}">${sign(ex)}${n2.format(Math.abs(ex*100))} pp<small>vs WLS</small></span>`;
-    } else heroState.extra="";
-    paintHero();
-  }
-  lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label),onLeave:()=>paintHero(),
-    onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); }});
+  if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
+  lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
+    onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); paintBm(a,b); }});
 }
 
 /* ---------- market hours (shown in German time) ---------- */
@@ -936,7 +942,7 @@ function openPosition(tk,C){
     document.querySelectorAll("#sRanges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.stockRange)));
     const s=stockSeries(tk), box=$("#sChart");
     const paint=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
-      const X=v==null&&L&&L.ext&&L.ext.base>0?L.ext:null;
+      const X=L&&L.ext&&L.ext.base>0?L.ext:null;
       $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label)+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
     if(s.pts.length<2){
       $("#sBig").innerHTML=p.px?esc(fmtLocal(p.px,p.ccy)):"–"; $("#sChg").innerHTML="";
