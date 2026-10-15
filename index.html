@@ -243,9 +243,9 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:false
+  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:true
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; S.showBench=localStorage.getItem("gtc.bm")==="1"; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -605,7 +605,7 @@ function renderChart(C,R){
     $("#legend").hidden=true; return;
   }
   const benchAll=benchSeries(R), bench=S.showBench?benchAll:[];
-  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; try{localStorage.setItem("gtc.bm",tg.checked?"1":"0");}catch(e){} render(); }; }
+  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; render(); /* on by default every time the site opens */ }; }
   $("#legend").hidden=!(bench.length>1);
   const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
