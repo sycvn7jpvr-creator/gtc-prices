@@ -113,6 +113,9 @@ button.row:hover{background:var(--sunk)}
 /* sheet */
 .veil{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;cursor:pointer;touch-action:none;overscroll-behavior:contain}
 .sheet{cursor:auto;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sheet>*{flex-shrink:0}
+.stats b small{display:inline;font-size:12px;font-weight:500;color:var(--muted)}
+.stats b.two{white-space:normal;line-height:1.3}
 .x{position:sticky;top:0;align-self:flex-end;margin-bottom:-50px;z-index:3;width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:16px;line-height:36px;padding:0;flex:none}
 #sChart svg{display:block;width:100%;touch-action:pan-y}
 .sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;
@@ -781,10 +784,10 @@ function openPosition(tk,C){
     <div class="eyebrow">Your position</div>
     <div class="stats num" style="box-shadow:none;border:1px solid var(--line)">
       <div><small>Value</small><b>${usd0.format(p.value)}</b></div>
-      <div><small>P&amp;L</small><b class="${cls(p.unreal)}">${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}</b></div>
+      <div><small>P&amp;L</small><b class="two ${cls(p.unreal)}">${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")}<br>${fmtPct(r)}</b></div>
       <div><small>Weight</small><b>${n2.format(p.value/(C.now.total||1)*100)}%</b></div>
       <div><small>Shares</small><b>${p.shares?nSh(p.shares):"–"}</b></div>
-      <div><small>Avg fill (${esc(p.ccy)})</small><b>${(()=>{ const b=effTrades().filter(t=>t.ticker===tk&&t.side==="BUY"&&t.price>0); return b.length?nPx(b.reduce((s,t)=>s+t.price*(+t.usd||0),0)/b.reduce((s,t)=>s+(+t.usd||0),0))+(b.some(t=>t.est)?" est.":""):"–"; })()}</b></div>
+      <div><small>Avg fill (${esc(p.ccy)})</small><b>${(()=>{ const b=effTrades().filter(t=>t.ticker===tk&&t.side==="BUY"&&t.price>0); return b.length?nPx(b.reduce((s,t)=>s+t.price*(+t.usd||0),0)/b.reduce((s,t)=>s+(+t.usd||0),0))+(b.some(t=>t.est)?" <small>est.</small>":""):"–"; })()}</b></div>
       <div><small>Avg cost (USD)</small><b>${avg?n2.format(avg):"–"}</b></div>
     </div>
     <div class="list" style="box-shadow:none;border:1px solid var(--line)">${ts.map(t=>`<div class="row"><div><div class="r-name"><span class="pill ${t.side==="BUY"?"buy":"sell"}">${t.side}</span> ${fmtDate(t.effDate||t.date)}</div><div class="r-sub num">${t.price>0?nPx(t.price)+" "+esc(t.ccy)+(t.est?" · estimated":""):"fill pending"}</div></div><div class="r-val num">${t.side==="BUY"?usd0.format(+t.usd||0):nSh(+t.shares||0)+" sh"}</div></div>`).join("")}</div>
