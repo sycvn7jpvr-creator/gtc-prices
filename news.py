@@ -98,17 +98,22 @@ def norm(t):
 
 def main():
     cutoff = time.time() - MAX_AGE_DAYS * 86400
-    out = {"updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "updated_ts": int(time.time()), "items": {}}
+    out = {"updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "updated_ts": int(time.time()), "items": {}, "debug": {}}
     for bbg, name in names_by_ticker().items():
-        found = []
+        found, dbg = [], {}
         try:
-            found += yahoo_news(to_yahoo(bbg)[0])
+            y = yahoo_news(to_yahoo(bbg)[0])
+            dbg["yahoo"] = len(y)
+            found += y
         except Exception as e:
-            print(f"yahoo news {bbg}: {e}")
+            dbg["yahoo_error"] = f"{type(e).__name__}: {e}"[:200]
         try:
-            found += google_news(name)
+            g = google_news(name)
+            dbg["google"] = len(g)
+            found += g
         except Exception as e:
-            print(f"google news {bbg}: {e}")
+            dbg["google_error"] = f"{type(e).__name__}: {e}"[:200]
+        out["debug"][bbg] = dbg
         seen, keep = set(), []
         for n in sorted(found, key=lambda x: -x["ts"]):
             k = norm(n["title"])
