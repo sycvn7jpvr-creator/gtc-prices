@@ -109,7 +109,10 @@ button.row:hover{background:var(--sunk)}
 .fab{position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:10;border:0;background:var(--ink);color:var(--bg);padding:14px 20px;border-radius:999px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 
 /* sheet */
-.veil{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.veil{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;cursor:pointer;touch-action:none;overscroll-behavior:contain}
+.sheet{cursor:auto;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.x{position:sticky;top:0;align-self:flex-end;margin-bottom:-50px;z-index:3;width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:16px;line-height:36px;padding:0;flex:none}
+#sChart svg{display:block;width:100%;touch-action:pan-y}
 .sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 @media (min-width:640px){.veil{align-items:center}.sheet{border-radius:20px}}
@@ -183,7 +186,7 @@ const S = {
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
   market:{latest:null,history:null}, stockRange:"1d"
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","max"].includes(sr)) S.stockRange=sr; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; }catch(e){}
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -652,11 +655,16 @@ async function resolveNames(ids){
 
 /* ---------- toast + modal ---------- */
 function toast(msg){ const b=$("#toastBox"); b.innerHTML=`<div class="toast">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t=setTimeout(()=>b.innerHTML="",2200); }
-function closeModal(){ $("#modal").innerHTML=""; document.removeEventListener("keydown",escClose); }
+let lockY=null;
+function lockScroll(){ if(lockY!==null) return; lockY=window.scrollY||0; const b=document.body.style; b.position="fixed"; b.top=(-lockY)+"px"; b.left="0"; b.right="0"; }
+function unlockScroll(){ if(lockY===null) return; const b=document.body.style; b.position=""; b.top=""; b.left=""; b.right=""; window.scrollTo(0,lockY); lockY=null; }
+function closeModal(){ $("#modal").innerHTML=""; document.removeEventListener("keydown",escClose); unlockScroll(); }
 function escClose(e){ if(e.key==="Escape") closeModal(); }
 function openModal(html){
-  $("#modal").innerHTML=`<div class="veil" id="veil"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  $("#modal").innerHTML=`<div class="veil" id="veil"><div class="sheet" role="dialog" aria-modal="true"><button type="button" class="x" id="xClose" aria-label="Close">✕</button>${html}</div></div>`;
+  lockScroll();
   $("#veil").addEventListener("click",e=>{ if(e.target.id==="veil") closeModal(); });
+  $("#xClose").onclick=closeModal;
   document.addEventListener("keydown",escClose);
   const f=$("#modal").querySelector("input,select,button"); if(f) setTimeout(()=>f.focus(),30);
 }
@@ -685,9 +693,10 @@ function stockSeries(tk){
   if(r==="1m" && L && L.m && L.m.length>=2) return intra(L.m,31,"1 month");
   let pts=(feedPx()[tk]||[]).map(q=>({x:dayNum(q[0]),v:q[2],date:q[0],label:fmtDate(q[0])+" "+q[0].slice(0,4)}));
   if(L && (!pts.length || L.d>pts[pts.length-1].date)) pts.push({x:dayNum(L.d),v:L.p,date:L.d,label:fmtDate(L.d)+" "+L.d.slice(0,4)});
-  const days={"1w":7,"1m":31}[r];
-  if(days){ const cut=dayNum(today())-days; pts=pts.filter(p=>p.x>=cut); }
-  const label = r==="max" ? (pts.length?"since "+pts[0].label:"") : {"1w":"1 week","1m":"1 month"}[r];
+  const days={"1w":7,"1m":31,"1y":366}[r];
+  if(days){ const cut=dayNum(today())-days; const inR=pts.filter(p=>p.x>=cut), before=pts.filter(p=>p.x<cut).pop(); pts=before?[before,...inR]:inR; }
+  if(r==="ytd"){ const y0=today().slice(0,4)+"-01-01"; const inR=pts.filter(p=>p.date>=y0), before=pts.filter(p=>p.date<y0).pop(); pts=before?[before,...inR]:inR; }
+  const label = r==="max" ? (pts.length?"since "+pts[0].label:"") : {"1w":"1 week","1m":"1 month","1y":"1 year","ytd":"this year"}[r];
   return {pts,base:pts.length?pts[0].v:0,label,intraday:false};
 }
 
@@ -699,7 +708,7 @@ function openPosition(tk,C){
   const r = p.cost>0? p.unreal/p.cost : 0;
   openModal(`<div><div class="sh-name">${esc(p.name||p.ticker)}</div><div class="tk">${esc(p.ticker)} Equity${L?` · ${esc(L.y)}`:""}</div></div>
     <div><div class="sbig num" id="sBig"></div><div class="chg num" id="sChg"></div></div>
-    <div class="ranges" id="sRanges"><button data-r="1d">1D</button><button data-r="1w">1W</button><button data-r="1m">1M</button><button data-r="max">Max</button></div>
+    <div class="ranges" id="sRanges"><button data-r="1d">1D</button><button data-r="1w">1W</button><button data-r="1m">1M</button><button data-r="ytd">YTD</button><button data-r="1y">1Y</button><button data-r="max">Max</button></div>
     <div id="sChart"></div>
     <div class="fresh" id="sNote"></div>
     <div class="eyebrow">Your position</div>
@@ -729,7 +738,7 @@ function openPosition(tk,C){
     const marks=s.intraday?[]:buys.filter(b=>b.effDate>=s.pts[0].date).map(b=>({x:dayNum(b.effDate),v:b.price}));
     paint();
     lineChart(box,s.pts,s.base,{h:180,markers:marks,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint()});
-    $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","max":", daily closes"}[S.stockRange]||"");
+    $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
   };
   document.querySelectorAll("#sRanges button").forEach(b=>b.onclick=()=>{ S.stockRange=b.dataset.r; try{localStorage.setItem("gtc.srange",S.stockRange);}catch(e){} draw(); });
   draw();

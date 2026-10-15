@@ -14,7 +14,7 @@ import yfinance as yf
 
 ROOT = Path(__file__).parent
 OUT = ROOT / "data"
-HIST_START = (dt.date.today() - dt.timedelta(days=380)).isoformat()
+HIST_START = (dt.date.today() - dt.timedelta(days=740)).isoformat()
 
 # Bloomberg exchange code -> (Yahoo suffix, currency)
 EXCH = {
