@@ -596,7 +596,9 @@ function renderOverview(C){
     const day = L ? (L.d===C.td && L.prev>0 ? L.p/L.prev-1 : 0) : null;
     const dayLbl = "today";
     // US extended hours: pre-market vs yesterday's close, after hours vs today's close
-    const X = L && L.ext && L.ext.base>0 ? L.ext : null;
+    let X = L && L.ext && L.ext.base>0 ? L.ext : null;
+    // pre-market window open but no pre-market trade yet: show 0.00% pre-market, not yesterday's after hours
+    if(L && L.ccy==="USD"){ const NY=MARKETS.find(m=>m.name==="New York"); if(NY && marketState(NY).st==="pre" && (!X || X.k!=="pre")) X={p:L.p,base:L.p,k:"pre"}; }
     const ext = X ? `<span class="num ${cls(X.p/X.base-1)}">${fmtPct(X.p/X.base-1)} ${X.k==="pre"?"pre-market":"after hours"}</span>` : "";
     const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
