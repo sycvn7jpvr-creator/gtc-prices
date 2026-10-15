@@ -155,6 +155,8 @@ def main():
 
     OUT.mkdir(exist_ok=True)
     (OUT / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
+    # tiny file the website polls every 30 s to know when to reload the big ones
+    (OUT / "stamp.json").write_text(json.dumps({"updated": latest["updated"]}))
     new_hist = json.dumps(hist, separators=(",", ":"))
     hp = OUT / "history.json"
     if not hp.exists() or hp.read_text() != new_hist:

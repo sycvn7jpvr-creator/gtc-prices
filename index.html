@@ -1119,7 +1119,20 @@ async function staticBoot(){
     $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~6 minutes.";
     if(!document.querySelector("#nfPop:not([hidden])")) render();  // don't close the stock picker mid-search
   };
-  await load(); setInterval(load,60*1000);
+  // live updates: poll a tiny stamp file; reload the data only when it changed
+  let stamp=null, first=true;
+  const check=async()=>{
+    const st=await get("stamp.json");
+    const now=st&&st.updated;
+    if(now && now===stamp) { if(!document.querySelector("#nfPop:not([hidden])")) renderHero(lastC||compute(),rangePoints(lastC||compute())); return; }
+    await load();
+    if(!first && now) toast("Prices updated");
+    stamp=now||stamp; first=false;
+  };
+  await check();
+  setInterval(()=>{ if(!document.hidden) check(); },30*1000);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) check(); });
+  window.addEventListener("focus",check);
 }
 (async()=>{
   const cl=window.claude;
