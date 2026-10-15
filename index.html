@@ -59,7 +59,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* chart */
 .chart{position:relative;display:flex;flex-direction:column;gap:10px}
-.chart svg{display:block;width:100%;height:190px;touch-action:none;-webkit-user-select:none;user-select:none}
+.chart svg{display:block;width:100%;height:190px;touch-action:pan-y;-webkit-user-select:none;user-select:none}
 .chart-empty{height:150px;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:16px}
 .ranges{display:flex;gap:4px;flex-wrap:wrap}
 .ranges button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px;color:var(--muted)}
@@ -206,7 +206,7 @@ a.row.news:hover{background:var(--sunk)}
 .stats b small{display:inline;font-size:12px;font-weight:500;color:var(--muted)}
 .stats b.two{white-space:normal;line-height:1.3}
 .x{position:sticky;top:0;align-self:flex-end;margin-bottom:-50px;z-index:3;width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:16px;line-height:36px;padding:0;flex:none}
-#sChart svg{display:block;width:100%;touch-action:none;-webkit-user-select:none;user-select:none}
+#sChart svg{display:block;width:100%;touch-action:pan-y;-webkit-user-select:none;user-select:none}
 .sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 @media (min-width:640px){.veil{align-items:center}.sheet{border-radius:20px}}
@@ -322,8 +322,10 @@ function makeSmoother(draw){
            reset(){ cur=null; if(raf) cancelAnimationFrame(raf); raf=0; } };
 }
 let scrubbing=false, renderDeferred=false, sheetRefresh=null;  /* while a finger is on a chart, refreshes wait */
-function renderSoon(){ if(scrubbing){ renderDeferred=true; return; } render(); }
-let scrollGen=0; document.addEventListener("scroll",()=>{ scrollGen++; },{capture:true,passive:true});
+/* live updates never redraw the page mid-scroll: they wait until scrolling has stopped */
+let scrollGen=0, lastScrollT=0, rsT=0; document.addEventListener("scroll",()=>{ scrollGen++; lastScrollT=performance.now(); },{capture:true,passive:true});
+const scrollingNow=()=>performance.now()-lastScrollT<300;
+function renderSoon(){ if(scrubbing){ renderDeferred=true; return; } if(scrollingNow()){ clearTimeout(rsT); rsT=setTimeout(renderSoon,320); return; } render(); }
 function setHTML(el,h){ if(el && el.__h!==h){ el.innerHTML=h; el.__h=h; } }
 function retrigger(el,cls){ if(!el||RM()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
@@ -597,12 +599,21 @@ function lineChart(box,pts,base,opts){
   const lv=()=>{ if(A) return; clearTimeout(settle); lastX=null; vx=0; lastPt=null; frozen=false; rect=null; curOn=false; hideSel(); xh.style.visibility="hidden"; scrubbing=false; if(opts.onLeave) opts.onLeave();
     if(renderDeferred){ renderDeferred=false; setTimeout(render,0); } };
   hit.addEventListener("pointerenter",measure);
+  /* touch: an up/down swipe scrolls the page (the browser takes it over), a sideways swipe or a short hold scrubs */
+  let tp=null;
+  const startScrub=(cx)=>{ tp=null; mv({clientX:cx,timeStamp:performance.now(),buttons:1}); };
   hit.addEventListener("pointerdown",e=>{ measure(); lastX=null; vx=0;
+    if(e.pointerType==="touch"){ const cx=e.clientX; tp={x0:cx,y0:e.clientY,cx,timer:setTimeout(()=>{ if(tp) startScrub(tp.cx); },170)}; return; }
     if(e.pointerType==="mouse"){ frozen=false; hideSel(); A=nearest(e); try{hit.setPointerCapture(e.pointerId);}catch(_){} }
     mv(e); });
   hit.addEventListener("pointerup",e=>{ if(!A) return; const b=nearest(e); frozen=b!==A; if(!frozen){ hideSel(); } A=null; });
-  hit.addEventListener("pointermove",mv);
-  hit.addEventListener("pointerleave",lv); hit.addEventListener("pointercancel",()=>{ A=null; lv(); });
+  hit.addEventListener("pointermove",e=>{
+    if(tp){ tp.cx=e.clientX; const dx=Math.abs(e.clientX-tp.x0), dy=Math.abs(e.clientY-tp.y0);
+      if(dx>=4 && dx>dy){ clearTimeout(tp.timer); tp=null; mv(e); }
+      return; }
+    mv(e); });
+  const endTouch=()=>{ if(tp){ clearTimeout(tp.timer); tp=null; } };
+  hit.addEventListener("pointerleave",()=>{ endTouch(); lv(); }); hit.addEventListener("pointercancel",()=>{ endTouch(); A=null; lv(); });
   return {lo,hi};
 }
 
@@ -1086,7 +1097,8 @@ function render(){
 function setTab(t){ const changed=S.tab!==t; S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); if(changed) retrigger($("#view"),"enter"); }
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
-let rz; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) render(); },120); });
+/* only a width change needs a redraw: iPhone Safari fires "resize" whenever its toolbar shrinks or grows while scrolling */
+let rz, lastW=innerWidth; window.addEventListener("resize",()=>{ if(innerWidth===lastW) return; lastW=innerWidth; clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) renderSoon(); },120); });
 
 async function resolveNames(ids){
   if(!S.user || !ids.length) return;
@@ -1481,7 +1493,7 @@ async function staticBoot(){
   const check=async()=>{
     const st=await get("stamp.json");
     const now=st&&st.updated;
-    if(now && now===stamp) { if(lastC && !scrubbing && !document.querySelector("#nfPop:not([hidden])")) renderHero(lastC,rangePoints(lastC)); return; }
+    if(now && now===stamp) { if(lastC && !scrubbing && !scrollingNow() && !document.querySelector("#nfPop:not([hidden])")) renderHero(lastC,rangePoints(lastC)); return; }
     if(busy) return; busy=true;
     let ok=false; try{ ok=await load(); }catch(e){} busy=false;
     if(!ok) return;  /* try again on the next check */
