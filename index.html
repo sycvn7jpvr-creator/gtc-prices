@@ -95,6 +95,8 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
+.chart-foot{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.chart-foot .legend{margin:0}
 .lvtog{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;cursor:pointer;user-select:none;width:max-content}
 .lvtog input{position:absolute;opacity:0;width:1px;height:1px}
 .lvtog .sw{width:40px;height:24px;border-radius:12px;background:var(--line);position:relative;transition:background .15s;flex:none}
@@ -199,7 +201,10 @@ label.f .hint{font-weight:400;font-size:12px}
       <button data-r="all" aria-pressed="true">All</button>
     </div>
     <div id="chartArea"><div class="chart-empty">Loading your trades…</div></div>
-    <div class="legend" id="legend" hidden><span><i></i>WLS Index</span></div>
+    <div class="chart-foot">
+      <label class="lvtog" for="bmT"><input type="checkbox" id="bmT"><span class="sw" aria-hidden="true"></span><span>Compare with WLS Index</span></label>
+      <div class="legend" id="legend" hidden><span><i></i><span id="bmName">WLS Index</span></span></div>
+    </div>
     <div class="fresh mouse-only">Tip: click and drag across the chart to see the change between two points.</div>
   </section>
 
@@ -226,9 +231,9 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:false
+  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:false, showBench:false
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; S.showLevels=localStorage.getItem("gtc.lv")==="1"; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; S.showLevels=localStorage.getItem("gtc.lv")==="1"; S.showBench=localStorage.getItem("gtc.bm")==="1"; }catch(e){}
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -542,16 +547,28 @@ function paintHero(v,label){
   $("#chg").innerHTML=chgLine(val-h.base,h.base,label||h.label,x=>usd2.format(x))+(v==null?h.extra:"");
 }
 function renderHero(C,R){
-  let extra="";
-  if(!R.intraday && C.benchPts.length>=2){
-    const f=C.benchPts[0], l=C.benchPts[C.benchPts.length-1], pf=valueAt(C.curve,f.date), pl=valueAt(C.curve,l.date);
-    if(pf>0){ const ex=(pl/pf-1)-(l.v/f.v-1); extra=`<span class="${cls(ex)}">${sign(ex)}${n2.format(Math.abs(ex*100))} pp<small>vs WLS since ${fmtDate(f.date)}</small></span>`; }
-  }
-  heroState={tot:C.now.total,base:R.base,label:R.label,extra};
+  heroState={tot:C.now.total,base:R.base,label:R.label,extra:""};
   paintHero();
   const up=S.market.latest&&S.market.latest.updated;
   $("#fresh").textContent = up ? (()=>{ const m=Math.round((Date.now()-Date.parse(up))/60000);
     return "Prices "+(m<90?m+" min ago":"from "+new Date(up).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"}))+" · Yahoo Finance, ~15 min delayed"; })() : "";
+}
+
+/* ---------- benchmark (WLS proxy) ---------- */
+function benchSeries(R){
+  const B=S.market.latest&&S.market.latest.bench, H=S.market.history&&S.market.history.bench;
+  if(!B && !H) return [];
+  const x0=R.pts[0].x, x1=R.pts[R.pts.length-1].x;
+  let src;
+  if(R.intraday){ const key=(x1-x0)<=1.25?"i":"w"; src=((B&&B[key])||[]).map(b=>({x:b[0]/86400,v:b[1]})); }
+  else { src=((H&&H.rows)||[]).map(r=>({x:dayNum(r[0]),v:r[2]})); if(B&&B.p&&B.d&&(!src.length||dayNum(B.d)>src[src.length-1].x)) src.push({x:dayNum(B.d),v:B.p}); }
+  src=src.filter(p=>p.v>0).sort((a,b)=>a.x-b.x);
+  const before=src.filter(p=>p.x<=x0).pop(), inR=src.filter(p=>p.x>x0&&p.x<=x1+1e-6);
+  const s0=before||inR[0]; if(!s0) return [];
+  const out=[{x:x0,v:s0.v},...inR]; const last=out[out.length-1];
+  if(last.x<x1) out.push({x:x1,v:last.v});
+  const b0=R.pts[0].v;
+  return out.map(p=>({x:p.x,v:b0*p.v/s0.v,raw:p.v}));
 }
 
 /* ---------- main chart ---------- */
@@ -562,12 +579,17 @@ function renderChart(C,R){
     area.innerHTML=`<div class="chart-empty">${R.intraday?"The 1-day chart fills in with the next price update.":"The chart fills in as soon as there are prices from two different days."}</div>`;
     $("#legend").hidden=true; return;
   }
-  let bench=[];
-  if(!R.intraday){
-    const binR=C.benchPts.filter(p=>p.date>=R.pts[0].date && p.date<=R.pts[R.pts.length-1].date);
-    if(binR.length>=2){ const pv=valueAt(C.curve,binR[0].date); if(pv) bench=binR.map(p=>({x:dayNum(p.date),v:pv*p.v/binR[0].v})); }
-  }
+  const bench=S.showBench?benchSeries(R):[];
+  const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>{ S.showBench=tg.checked; try{localStorage.setItem("gtc.bm",tg.checked?"1":"0");}catch(e){} render(); }; }
   $("#legend").hidden=!(bench.length>1);
+  const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
+  if(heroState){
+    if(bench.length>1){
+      const b0=bench[0].v, b1=bench[bench.length-1].v, br=b1/b0-1, pr=R.pts[R.pts.length-1].v/R.pts[0].v-1, ex=pr-br;
+      heroState.extra=`<span class="${cls(br)}" style="font-weight:600">WLS ${fmtPct(br)}<small>same period</small></span><span class="${cls(ex)}">${sign(ex)}${n2.format(Math.abs(ex*100))} pp<small>vs WLS</small></span>`;
+    } else heroState.extra="";
+    paintHero();
+  }
   lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label),onLeave:()=>paintHero(),
     onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); }});
 }
