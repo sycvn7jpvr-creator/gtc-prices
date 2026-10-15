@@ -547,7 +547,9 @@ function lineChart(box,pts,base,opts){
     const x=svgX(e), b=nearest(e);
     if(A && (e.buttons&1)){ putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; showRange(A,b); } return; }
     if(frozen) return;
-    putCur(x,yAt(x)); if(b!==lastPt){ lastPt=b; if(opts.onScrub) opts.onScrub(b); } };
+    putCur(x,yAt(x));
+    if(opts.onScrub){ const [i,j]=idxAt(x), t=XS[j]===XS[i]?0:(x-XS[i])/(XS[j]-XS[i]);
+      opts.onScrub({v:pts[i].v+(pts[j].v-pts[i].v)*t, x:pts[i].x+(pts[j].x-pts[i].x)*t, label:b.label}); } };
   const mv=e=>{ pend={clientX:e.clientX,buttons:e.buttons}; if(!raf) raf=requestAnimationFrame(frame); };
   const lv=()=>{ if(A) return; pend=null; lastPt=null; frozen=false; hideSel(); cur.setAttribute("visibility","hidden"); if(opts.onLeave) opts.onLeave(); };
   hit.addEventListener("pointerdown",e=>{
@@ -644,11 +646,10 @@ function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   el.innerHTML=`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`;
 }
 let tween=null;
-const heroSm=makeSmoother((val,m)=>drawHero(val,m.label,m.x,m.v));
 function paintHero(v,label,x){
   if(!heroState) return;
-  if(v!=null){ tween=null; heroSm.set(v,{label,x,v}); return; }  // finger on the chart: figures glide
-  heroSm.reset(); drawHero(null);
+  if(v!=null){ tween=null; drawHero(v,label,x,v); return; }  // finger on the chart: value under the finger, no delay
+  drawHero(null);
 }
 function drawHero(v,label,x,vPt){
   const h=heroState; if(!h) return;
@@ -1130,8 +1131,7 @@ function openPosition(tk,C){
   const draw=()=>{
     document.querySelectorAll("#sRanges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.stockRange)));
     const s=stockSeries(tk), box=$("#sChart");
-    const sm=makeSmoother((val,m)=>paintNow(val,m));
-    const paint=(v,label)=>{ if(v!=null){ sm.set(v,label); return; } sm.reset(); paintNow(null); };
+    const paint=(v,label)=>paintNow(v,label);
     const paintNow=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
       const X=L&&L.ext&&L.ext.base>0?L.ext:null;
       $("#sBig").innerHTML=esc(fmtLocal(val,p.ccy)); $("#sChg").innerHTML=chgLine(val-s.base,s.base,label||s.label,x=>fmtLocal(x,p.ccy))+(X?`<span class="${cls(X.p/X.base-1)}" style="font-weight:500">${X.k==="pre"?"Pre-market":"After hours"} ${esc(fmtLocal(X.p,p.ccy))} · ${fmtPct(X.p/X.base-1)}</span>`:""); };
