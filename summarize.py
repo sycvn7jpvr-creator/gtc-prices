@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -46,9 +47,16 @@ def call_model(prompt):
                        "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(ENDPOINT, data=body, method="POST", headers={
         "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=40) as r:
-        data = json.loads(r.read())
-    return data["choices"][0]["message"]["content"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=40) as r:
+            raw, code = r.read(), r.status
+    except urllib.error.HTTPError as e:
+        raw, code = e.read(), e.code
+    try:
+        data = json.loads(raw)
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception:
+        raise RuntimeError(f"HTTP {code}: {raw[:240]!r}")
 
 
 def main():
