@@ -93,8 +93,11 @@ def events_for(sym, dbg):
             if local.hour or local.minute:
                 e_ts, e_time = ts, True
             e_eps = num(r.get("EPS Estimate"))
-    its = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
-    if its and as_date(its) and as_date(its) >= TODAY - dt.timedelta(days=1):
+    # Yahoo keeps the last reported date in earningsTimestamp; the next one is in Start/End
+    cands = [x for x in (info.get("earningsTimestamp"), info.get("earningsTimestampStart"), info.get("earningsTimestampEnd"))
+             if x and as_date(x) and as_date(x) >= TODAY - dt.timedelta(days=1)]
+    its = min(cands) if cands else None
+    if its:
         d = as_date(its)
         if e_date is None or abs((d - e_date).days) <= 1:
             e_date = e_date or d
@@ -130,7 +133,30 @@ def events_for(sym, dbg):
     return sorted(out, key=lambda e: e["date"])
 
 
+def extra_events():
+    """Company-confirmed dates Yahoo misses (events_extra.json, edited by hand)."""
+    p = ROOT / "events_extra.json"
+    try:
+        return {k: v for k, v in json.loads(p.read_text()).items() if not k.startswith("_")} if p.exists() else {}
+    except Exception:
+        return {}
+
+
+def merge(ev, extra):
+    for x in extra:
+        d = as_date(x.get("date"))
+        if not in_window(d) or d < TODAY:
+            continue
+        clash = [e for e in ev if e["type"] == x["type"] and abs((as_date(e["date"]) - d).days) <= 3]
+        if clash:  # the company's date wins over Yahoo's
+            for e in clash:
+                ev.remove(e)
+        ev.append(dict({"ts": None, "timeKnown": False, "estimate": False}, **x))
+    return sorted(ev, key=lambda e: e["date"])
+
+
 def main():
+    extras = extra_events()
     prev = {}
     if OUT.exists():
         try:
@@ -149,7 +175,7 @@ def main():
             if failed and bbg in prev:
                 ev = [e for e in prev[bbg] if e["date"] >= (TODAY - dt.timedelta(days=1)).isoformat()]
                 dbg["kept_previous"] = True
-            out["items"][bbg] = ev
+            out["items"][bbg] = merge(ev, extras.get(bbg, []))
         except Exception as e:
             dbg["error"] = f"{type(e).__name__}: {e}"[:200]
             out["items"][bbg] = prev.get(bbg, [])

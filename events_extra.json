@@ -1,0 +1,6 @@
+{
+  "_about": "Dates confirmed on the companies' own investor pages that Yahoo Finance is missing. events.py merges them into data/events.json; past dates drop out automatically.",
+  "OERL SE": [
+    {"type": "earnings", "date": "2026-10-29", "title": "Q3 trading update", "source": "https://www.oerlikon.com/en/investors/financial-calendar/"}
+  ]
+}

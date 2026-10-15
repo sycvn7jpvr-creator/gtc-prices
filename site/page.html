@@ -148,6 +148,16 @@ button.row:hover{background:var(--sunk)}
 .g-ends b{font-weight:700}
 .lvinfo b{font-weight:700}
 a.row.news{display:block;color:inherit;text-decoration:none}
+.row.ev{grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px}
+.ev-d{grid-row:1/3;width:46px;padding:6px 0 5px;border-radius:10px;background:var(--sunk);text-align:center;line-height:1.05}
+.ev-d small{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.ev-d b{font-family:var(--f-display);font-size:19px;font-weight:700}
+.ev.earn .ev-d{background:var(--accent-soft,var(--sunk))}
+.ev .r-name{white-space:normal}
+.ev-w{font-size:13px;font-weight:600;text-align:right;white-space:nowrap}
+.ev-w.soon{color:var(--accent)}
+.ev .r-sub{grid-column:2/4}
+.ev-after{color:var(--muted);font-weight:500}
 .nf{display:flex;gap:8px;align-items:stretch}
 .nf-all{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;font-weight:700;color:var(--muted)}
 .nf-all b{font-weight:500;margin-left:4px;opacity:.7}
@@ -1126,6 +1136,51 @@ function stockSeries(tk){
   return {pts,base:pts.length?pts[0].v:0,label,intraday:false};
 }
 
+/* ---------- upcoming company events (earnings, dividends) ---------- */
+const berlinDate = ms => new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Berlin",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(ms));
+const dnum = d => Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))/86400000;
+function eventsFor(tk){ const t=berlinDate(Date.now()); return (((S.events&&S.events.items)||{})[tk]||[]).filter(e=>e.date>=t).sort((a,b)=>a.date<b.date?-1:1); }
+function eventRow(e,tk){
+  const code=tk.split(" ").pop(), M=MARKETS.find(m=>m.codes.includes(code));
+  const days=dnum(e.date)-dnum(berlinDate(Date.now()));
+  const d=new Date(Date.UTC(+e.date.slice(0,4),+e.date.slice(5,7)-1,+e.date.slice(8,10),12));
+  const wd=d.toLocaleDateString("en-GB",{weekday:"short",timeZone:"UTC"}), mon=d.toLocaleDateString("en-GB",{month:"short",timeZone:"UTC"});
+  const when=days<=0?"Today":days===1?"Tomorrow":"in "+days+" days";
+  const after=S.settings.end&&e.date>S.settings.end;
+  /* Yahoo's dividend amount can be in the declaring currency (e.g. USD for CMB.TECH), so no currency sign */
+  const amt=e.amount>0?n2.format(e.amount):"";
+  const US=M&&M.name==="New York";  /* Yahoo's release times are reliable for US stocks only */
+  let title="", sub=[];
+  if(e.type==="earnings"){
+    title=e.title?esc(e.title):"Earnings release";
+    if(e.timeKnown&&e.ts&&US){
+      const lt=tzParts(M.tz,e.ts*1000), hm=lt.hour+":"+lt.minute, rel=hm<M.open?"before the market opens":hm>=M.close?"after the market closes":"during trading";
+      sub.push(`${wd}, ${rel} · ${berlinHM(e.ts*1000)} German time`);
+    } else if(e.estimate&&e.range){
+      const r=e.range.map(x=>new Date(x+"T12:00:00Z").toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"}));
+      sub.push(`Expected ${r[0]}–${r[1]}, date not confirmed yet`);
+    } else sub.push(e.estimate?`${wd} · date not confirmed yet`:`${wd} · exact time not published`);
+    if(e.eps!=null){ let f; try{ f=new Intl.NumberFormat("en-US",{style:"currency",currency:e.ccy||"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(e.eps); }catch(_){ f=n2.format(e.eps); }
+      sub.push(`analysts expect EPS of ${esc(f)}`); }
+    if(e.source) sub.push(`<a href="${esc(e.source)}" target="_blank" rel="noopener noreferrer" style="color:inherit">confirmed by the company</a>`);
+  } else if(e.type==="exdiv"){
+    title="Ex-dividend day";
+    sub.push(`${wd} · only shares held before this day get the dividend`+(amt?` · last dividend ${amt} per share`:""));
+  } else if(e.type==="divpay"){
+    title="Dividend payment";
+    sub.push(`${wd}`+(amt?` · last dividend ${amt} per share`:""));
+  } else return "";
+  return `<div class="row ev${e.type==="earnings"?" earn":""}"><div class="ev-d"><small>${mon}</small><b>${d.getUTCDate()}</b></div>
+    <div class="r-name">${title}</div><div class="ev-w${days<=7&&!after?" soon":""}">${after?'<span class="ev-after">after challenge</span>':when}</div>
+    <div class="r-sub">${sub.join(" · ")}</div></div>`;
+}
+function eventsHTML(tk){
+  if(!S.events) return "";  /* no event data loaded (e.g. the private Claude page) */
+  const ev=eventsFor(tk);
+  return `<div id="sEvents"><div class="eyebrow">Upcoming events</div>
+    <div class="list" style="box-shadow:none;border:1px solid var(--line);margin-top:14px">${ev.length?ev.map(e=>eventRow(e,tk)).join(""):
+    `<div class="row"><div class="r-sub">No earnings or dividend dates announced for the next 4 months.</div></div>`}</div></div>`;
+}
 function statsHTML(p,C){
   const tk=p.ticker, avg=p.shares>0?p.cost/p.shares:0, r=p.cost>0?p.unreal/p.cost:0;
   return `<div class="stats num" id="sStats" style="box-shadow:none;border:1px solid var(--line)">
@@ -1152,6 +1207,7 @@ function openPosition(tk,C){
     <div class="fresh" id="sNote"></div>
     ${S.levels[tk]?`<div class="lvbox"><label class="lvtog" for="lvT"><input type="checkbox" id="lvT" ${S.showLevels?"checked":""}><span class="sw" aria-hidden="true"></span><span>Stop loss &amp; take profit</span></label>
     <div class="lvinfo" id="lvInfo"></div></div>`:""}
+    ${eventsHTML(tk)}
     <div class="eyebrow">Your position</div>
     ${statsHTML(p,C)}
     <div class="list" style="box-shadow:none;border:1px solid var(--line)">${ts.map(t=>`<div class="row"><div><div class="r-name"><span class="pill ${t.side==="BUY"?"buy":"sell"}">${t.side}</span> ${fmtDate(t.effDate||t.date)}</div><div class="r-sub num">${t.price>0?nPx(t.price)+" "+esc(t.ccy)+(t.est?" · estimated":""):"fill pending"}</div></div><div class="r-val num">${t.side==="BUY"?usd0.format(+t.usd||0):nSh(+t.shares||0)+" sh"}</div></div>`).join("")}</div>
@@ -1199,6 +1255,7 @@ function openPosition(tk,C){
   sheetRefresh=C2=>{ const q=C2.now.positions.find(x=>x.ticker===tk); if(!q) return;
     L=livePx()[tk];
     const st=$("#sStats"), h=statsHTML(q,C2); if(st && st.__h!==h){ st.outerHTML=h; const n=$("#sStats"); if(n) n.__h=h; }
+    const se=$("#sEvents"), eh=eventsHTML(tk); if(se && eh && se.__h!==eh){ se.outerHTML=eh; const n=$("#sEvents"); if(n) n.__h=eh; }
     draw(); };
 }
 
@@ -1396,9 +1453,9 @@ async function staticBoot(){
   S.canWrite=false;
   const get=async f=>{ try{ const r=await fetch("data/"+f+"?t="+Date.now(),{cache:"no-store"}); return r.ok? await r.json():null; }catch(e){ return null; } };
   const load=async()=>{
-    const [tr,st,pr,la,hi,nw,lv]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json","news.json","levels.json"].map(get));
+    const [tr,st,pr,la,hi,nw,lv,ev]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json","news.json","levels.json","events.json"].map(get));
     /* a file that fails to load (e.g. while GitHub is publishing) keeps its last good copy */
-    if(nw) S.news=nw; if(lv) S.levels=lv; else S.levels=S.levels||{};
+    if(nw) S.news=nw; if(ev) S.events=ev; if(lv) S.levels=lv; else S.levels=S.levels||{};
     if(!Array.isArray(tr)){ if(!S.got.trades){ S.dbState="none"; render(); } return false; }
     S.trades=tr; if(Array.isArray(pr)) S.prices=pr; else S.prices=S.prices||[]; if(st) S.settings=Object.assign({},S.settings,st);
     S.market={latest:la||S.market.latest,history:hi||S.market.history}; S.got={trades:true,prices:true}; S.dbState="ok";
