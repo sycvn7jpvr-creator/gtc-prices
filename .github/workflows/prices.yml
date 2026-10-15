@@ -1,7 +1,6 @@
 name: prices
 on:
-  schedule:
-    - cron: "*/6 * * * *"   # every 6 min = 10x per hour (GitHub Pages rebuild limit)
+  # started every 6 minutes by cron-job.org (GitHub's own scheduler proved unreliable)
   workflow_dispatch:
 permissions:
   contents: write
