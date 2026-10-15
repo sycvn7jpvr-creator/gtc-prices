@@ -32,6 +32,9 @@ EXCH = {
     "KS": (".KS", "KRW"), "SP": (".SI", "SGD"), "TB": (".BK", "THB"),
     "SJ": (".JO", "ZAR"), "IJ": (".JK", "IDR"), "MK": (".KL", "MYR"),
 }
+BENCH_SYM = "ACWI"
+BENCH_NAME = "iShares MSCI ACWI ETF (WLS proxy)"
+
 # Yahoo quotes these in minor units; convert to major units.
 MINOR = {".L": 100.0, ".JO": 100.0}
 
@@ -152,6 +155,19 @@ def main():
             hist["fx"][ccy] = [[d, c] for d, o, c in rows if d < today]
         except Exception as e:
             latest["errors"].append(f"FX {ccy}: {type(e).__name__}: {e}"[:200])
+
+    # benchmark: Bloomberg's WLS index isn't on Yahoo; MSCI ACWI (world large + mid cap, DM + EM, USD) is the proxy
+    try:
+        rows = daily(BENCH_SYM, 1.0)
+        lb = last_bar(BENCH_SYM, 1.0)
+        same = next((row for row in rows if lb and row[0] == lb["d"]), None)
+        if same and same[2]:
+            lb["p"] = same[2]
+        prev = next((row[2] for row in reversed(rows) if lb and row[0] < lb["d"]), None)
+        latest["bench"] = dict(lb or {}, sym=BENCH_SYM, name=BENCH_NAME, prev=prev)
+        hist["bench"] = {"sym": BENCH_SYM, "rows": [row for row in rows if row[0] < today]}
+    except Exception as e:
+        latest["errors"].append(f"benchmark {BENCH_SYM}: {type(e).__name__}: {e}"[:200])
 
     OUT.mkdir(exist_ok=True)
     (OUT / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
