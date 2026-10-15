@@ -197,7 +197,7 @@ label.f .hint{font-weight:400;font-size:12px}
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
     <button role="tab" data-tab="news" aria-selected="false">News</button>
-    <button role="tab" data-tab="trades" aria-selected="false">Activity</button>
+    <button role="tab" data-tab="trades" aria-selected="false">Orders</button>
   </nav>
 
   <div id="notice"></div>
@@ -747,7 +747,7 @@ function renderTrades(C){
       <div>${right}</div></button>`;
   }).join("");
   $("#view").innerHTML=`<section class="sec">
-    <div class="sec-h"><h2>Trade history</h2><span>${ts.length} trade${ts.length===1?"":"s"}${S.canWrite?" · tap to edit":""}</span></div>
+    <div class="sec-h"><h2>Orders</h2><span>${ts.length} trade${ts.length===1?"":"s"}${S.canWrite?" · tap to edit":""}</span></div>
     <div class="list">${rows||'<div class="empty">No trades yet. Tap <b>+ Trade</b> to log one.</div>'}</div>
     <p class="foot">Buys show the lot's result at the latest price. Sells show realized profit against your average cost. Estimated fills: orders went in Wed 14 Oct 19:00 Berlin, so US names at the 19:00 price, all others at their next open.</p>
   </section>`;
