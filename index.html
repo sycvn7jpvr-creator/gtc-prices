@@ -553,7 +553,7 @@ function bigMoney(v,ccy){
 }
 function chgLine(d,base,label,money){
   const r=base?d/base:0, arrow=d>0?"▲":d<0?"▼":"";
-  return `<span class="${cls(d)}">${arrow} ${money?money(Math.abs(d))+" · ":""}${n2.format(Math.abs(r*100))}%<small>${esc(label)}</small></span>`;
+  return `<span class="${cls(d)}">${arrow} ${n2.format(Math.abs(r*100))}%${money?" · "+money(Math.abs(d)):""}<small>${esc(label)}</small></span>`;
 }
 let heroState=null;
 function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
