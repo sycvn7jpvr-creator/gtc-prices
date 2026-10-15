@@ -86,7 +86,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .list{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
 .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:13px 16px;border-top:1px solid var(--line);align-items:center;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0;background:transparent}
 .row:first-child{border-top:0}
-button.row:hover{background:var(--sunk)}
+@media (hover:hover){ button.row:hover,a.row.news:hover{background:var(--sunk)} }  /* no sticky hover after a tap on phones */
 .r-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .r-sub{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;min-width:0;flex-wrap:wrap}
 .r-val{text-align:right;font-weight:600}
@@ -231,18 +231,25 @@ label.f .hint{font-weight:400;font-size:12px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:30;font-size:14px}
 .foot{font-size:12px;color:var(--muted);text-align:center}
 @media (prefers-reduced-motion:no-preference){
-  .sheet{animation:rise .22s cubic-bezier(.2,.8,.2,1)}
+  .sheet{animation:rise .36s cubic-bezier(.32,.72,0,1)}
+  .sheet.stagger>*{animation-duration:.36s}
   .veil{animation:veilIn .2s ease-out}
-  .veil.closing{animation:veilOut .18s ease-in forwards}
-  .veil.closing .sheet{animation:sink .18s ease-in forwards}
+  .veil.closing{animation:veilOut .22s ease-in forwards}
+  .veil.closing .sheet{animation:sink .22s cubic-bezier(.4,0,1,1) forwards}
   #view.enter{animation:viewIn .22s ease-out}
   .r-val.flash-up{animation:flashUp 1.4s ease-out}
   .r-val.flash-down{animation:flashDown 1.4s ease-out}
   .big.glow-up{animation:glowUp 1.2s ease-out}
   .big.glow-down{animation:glowDown 1.2s ease-out}
   svg.drawing circle{animation:dotIn .3s .45s both}
-  @keyframes rise{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
-  @keyframes sink{to{transform:translateY(60px);opacity:0}}
+  @keyframes rise{from{transform:translateY(100%)}to{transform:none}}
+  @keyframes sink{to{transform:translateY(100%)}}
+  @media (min-width:640px){
+    .sheet{animation:popSheet .26s cubic-bezier(.2,.8,.2,1)}
+    .veil.closing .sheet{animation:sinkPop .2s ease-in forwards}
+    @keyframes popSheet{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+    @keyframes sinkPop{to{opacity:0;transform:translateY(10px) scale(.98)}}
+  }
   @keyframes veilIn{from{background:rgba(10,12,16,0)}}
   @keyframes veilOut{to{background:rgba(10,12,16,0)}}
   @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -253,6 +260,54 @@ label.f .hint{font-weight:400;font-size:12px}
   @keyframes dotIn{from{opacity:0}to{opacity:1}}
 }
 .r-val{border-radius:6px;padding:0 4px;margin-right:-4px}
+/* ---------- sliding selection pill (tabs, ranges, buy/sell) ---------- */
+.has-ind{position:relative}
+.has-ind>button{position:relative;z-index:1}
+.slide-ind{position:absolute;left:0;top:0;z-index:0;pointer-events:none;border-radius:10px;opacity:0;
+  transition:transform .32s cubic-bezier(.3,.75,.2,1),width .32s cubic-bezier(.3,.75,.2,1),height .32s cubic-bezier(.3,.75,.2,1),opacity .2s}
+.tabs>.slide-ind{background:var(--surface);box-shadow:var(--shadow)}
+.tabs.has-ind button[aria-selected="true"]{background:transparent;box-shadow:none}
+.ranges>.slide-ind{background:var(--sunk);border-radius:999px}
+.ranges.has-ind button[aria-pressed="true"]{background:transparent}
+.seg>.slide-ind{background:var(--surface);box-shadow:var(--shadow)}
+.seg.has-ind button[aria-pressed="true"]{background:transparent;box-shadow:none}
+/* ---------- press feedback and colour changes ---------- */
+.tabs button,.ranges button,.seg button,.btn,.nf-all,.nf-btn,.x,.fab,.nf-list button{transition:transform .14s ease,color .2s,background-color .2s,border-color .2s}
+.nf-chev{display:inline-block;transition:transform .22s cubic-bezier(.3,.75,.2,1)}
+[data-pos],.al-row,a.row.news{transition:background-color .2s,transform .14s ease}
+@media (prefers-reduced-motion:no-preference){
+  .tabs button:active,.ranges button:active,.seg button:active,.btn:active,.nf-all:active,.nf-btn:active,.x:active,.fab:active{transform:scale(.95)}
+  [data-pos]:active,.al-row:active,a.row.news:active{transform:scale(.985);background:var(--sunk)}
+  /* tabs: content slides in from the side you moved to */
+  #view.enter-r{animation:viewInR .28s cubic-bezier(.2,.8,.2,1)}
+  #view.enter-l{animation:viewInL .28s cubic-bezier(.2,.8,.2,1)}
+  @keyframes viewInR{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+  @keyframes viewInL{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+  /* lists that change (news filter): rows rise in one after another */
+  .stagger>*{animation:fadeUp .32s cubic-bezier(.2,.8,.2,1) both}
+  .stagger>*:nth-child(2){animation-delay:30ms} .stagger>*:nth-child(3){animation-delay:60ms}
+  .stagger>*:nth-child(4){animation-delay:90ms} .stagger>*:nth-child(5){animation-delay:120ms}
+  .stagger>*:nth-child(6){animation-delay:150ms} .stagger>*:nth-child(n+7){animation-delay:180ms}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  /* news stock picker */
+  .nf-pop:not([hidden]){animation:popIn .18s cubic-bezier(.2,.8,.2,1);transform-origin:top center}
+  @keyframes popIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+  /* stop loss / take profit panel */
+  .swap{animation:fadeUp .26s cubic-bezier(.2,.8,.2,1)}
+  .gauge.in .g-bar{animation:barIn .5s cubic-bezier(.2,.8,.2,1) both}
+  .gauge.in .g-dot{animation:dotPop .32s .28s cubic-bezier(.3,1.4,.5,1) both}
+  .gauge.in .g-now,.gauge.in .g-ends{animation:fadeIn .3s .2s both}
+  @keyframes barIn{from{clip-path:inset(0 100% 0 0 round 4px)}to{clip-path:inset(0 0 0 0 round 4px)}}
+  @keyframes dotPop{from{transform:translate(-50%,-50%) scale(0)}to{transform:translate(-50%,-50%) scale(1)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  svg .lvl{transition:opacity .18s}
+  svg .lvl.lv-in{animation:fadeIn .35s ease-out both}
+  svg .lvl.lv-out{opacity:0}
+  /* toast */
+  .toast{animation:toastIn .26s cubic-bezier(.2,.8,.2,1)}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+}
+@media (prefers-reduced-motion:reduce){ .slide-ind{transition:none} }
 </style>
 
 <div class="wrap">
@@ -347,6 +402,21 @@ let scrollGen=0, lastScrollT=0, rsT=0; document.addEventListener("scroll",()=>{ 
 const scrollingNow=()=>performance.now()-lastScrollT<300;
 function renderSoon(){ if(scrubbing){ renderDeferred=true; return; } if(scrollingNow()){ clearTimeout(rsT); rsT=setTimeout(renderSoon,320); return; } render(); }
 function setHTML(el,h){ if(el && el.__h!==h){ el.innerHTML=h; el.__h=h; } }
+/* moves the selection pill of a segmented control to the active button */
+function slidePill(box,activeSel){
+  if(!box) return; let ind=box.querySelector(":scope>.slide-ind");
+  if(!ind){ ind=document.createElement("i"); ind.className="slide-ind"; ind.setAttribute("aria-hidden","true"); box.prepend(ind); box.classList.add("has-ind"); }
+  const a=box.querySelector(activeSel); if(!a||!a.offsetWidth){ ind.style.opacity="0"; return; }
+  const first=!ind.__on; ind.__on=true;
+  if(first) ind.style.transition="none";
+  ind.style.width=a.offsetWidth+"px"; ind.style.height=a.offsetHeight+"px";
+  ind.style.transform=`translate(${a.offsetLeft}px,${a.offsetTop}px)`; ind.style.opacity="1";
+  if(first){ void ind.offsetWidth; ind.style.transition=""; }
+}
+function pills(){ slidePill($(".tabs"),'[aria-selected="true"]'); slidePill($("#ranges"),'[aria-pressed="true"]'); slidePill($("#sRanges"),'[aria-pressed="true"]'); slidePill($("#side"),'[aria-pressed="true"]'); }
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ document.querySelectorAll(".slide-ind").forEach(i=>i.__on=false); pills(); });
+document.addEventListener("touchstart",()=>{},{passive:true});  /* lets iPhone Safari show :active press states */
+function staggerIn(el){ if(!el||RM()) return; el.classList.remove("stagger"); void el.offsetWidth; el.classList.add("stagger"); clearTimeout(el.__st); el.__st=setTimeout(()=>el.classList.remove("stagger"),800); }
 function retrigger(el,cls){ if(!el||RM()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
 /* ---------- formatting ---------- */
@@ -548,13 +618,13 @@ function lineChart(box,pts,base,opts){
     ${opts.pctAxis?pctAxis():""}
     ${bench.length>1?`<g opacity="${opts.benchOpacity==null?1:opts.benchOpacity}"><path d="${path(bench)}" fill="none" stroke="var(--bench)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
       <circle cx="${X(bench[bench.length-1].x).toFixed(1)}" cy="${Y(bench[bench.length-1].v).toFixed(1)}" r="3.5" fill="var(--bench)"/></g>`:""}
-    ${hl.map(l=>{
+    <g class="lvl${opts.levelsIn&&!RM()?" lv-in":""}">${hl.map(l=>{
       if(l.v>=lo && l.v<=hi){  // inside the visible range: dashed line
         const y=Y(l.v).toFixed(1), ty=Math.max(11,Math.min(H-4,+y+(l.below?13:-5)));
         return `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="${l.color}" stroke-width="1.5" stroke-dasharray="6 4"/>
         <text x="${W-4}" y="${ty}" text-anchor="end" font-size="11" font-weight="700" fill="${l.color}" font-family="IBM Plex Mono, monospace">${esc(l.label)}</text>`; }
       const up=l.v>hi;  // off-chart: small marker pinned to the edge, chart scale untouched
-      return `<text x="${W-4}" y="${up?11:H-3}" text-anchor="end" font-size="11" font-weight="700" fill="${l.color}" font-family="IBM Plex Mono, monospace">${up?"▲":"▼"} ${esc(l.label)}</text>`; }).join("")}
+      return `<text x="${W-4}" y="${up?11:H-3}" text-anchor="end" font-size="11" font-weight="700" fill="${l.color}" font-family="IBM Plex Mono, monospace">${up?"▲":"▼"} ${esc(l.label)}</text>`; }).join("")}</g>
     <path class="main" d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${marks.map(m=>`<circle cx="${X(m.x).toFixed(1)}" cy="${Y(m.v).toFixed(1)}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`).join("")}
     <circle cx="${X(pts[pts.length-1].x).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="4" fill="${col}"/>
@@ -899,7 +969,8 @@ function renderNews(C){
     ${held.length?filt:""}
     <div class="list">${all.length?all.slice(0,60).map(x=>newsRow(x.n,S.newsFilter==="all"?x.stock:null)).join(""):`<div class="empty">${S.news?"No headlines in the last 7 days.":"Headlines appear on the public site and refresh every few minutes."}</div>`}</div>
     <p class="foot" style="text-align:left;margin:0">Headlines from Yahoo Finance and Google News for the stocks you hold, last 7 days. Tap one to read it on the publisher's site. Matching is by company name, so now and then an unrelated story slips in.</p></section>`;
-  const pick=v=>{ S.newsFilter=v; try{localStorage.setItem("gtc.nf",v);}catch(e){} render(); };
+  const pick=v=>{ const ch=S.newsFilter!==v; S.newsFilter=v; try{localStorage.setItem("gtc.nf",v);}catch(e){} render();
+    if(ch){ const r=document.querySelector("#view a.row.news"); staggerIn(r?r.parentElement:document.querySelector("#view .list")); } };
   document.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>pick(b.dataset.nf));
   const btn=$("#nfBtn"), pop=$("#nfPop"), q=$("#nfQ");
   if(!btn) return;
@@ -1119,8 +1190,11 @@ function render(){
   if(S.tab==="trades") renderTrades(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
   $("#fab").hidden=!S.canWrite;
   if(sheetRefresh) sheetRefresh(C);
+  pills();
 }
-function setTab(t){ const changed=S.tab!==t; S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render(); if(changed) retrigger($("#view"),"enter"); }
+const TAB_ORDER=["overview","news","trades"];
+function setTab(t){ const from=TAB_ORDER.indexOf(S.tab), to=TAB_ORDER.indexOf(t), changed=S.tab!==t; S.tab=t; try{localStorage.setItem("gtc.tab",t);}catch(e){} render();
+  if(changed){ const v=$("#view"); v.classList.remove("enter-l","enter-r"); retrigger(v,to>from?"enter-r":"enter-l"); } }
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
 /* only a width change needs a redraw: iPhone Safari fires "resize" whenever its toolbar shrinks or grows while scrolling */
@@ -1142,7 +1216,7 @@ function closeModal(){
   const v=$("#veil");
   const done=()=>{ if(v && $("#veil")!==v) return; $("#modal").innerHTML=""; unlockScroll(); };  /* a sheet opened meanwhile stays */
   if(!v||RM()||v.classList.contains("closing")) return done();
-  v.classList.add("closing"); setTimeout(done,180);
+  v.classList.add("closing"); setTimeout(done,220);
 }
 function escClose(e){ if(e.key==="Escape") closeModal(); }
 function openModal(html){
@@ -1243,9 +1317,9 @@ function statsHTML(p,C){
       <div><small>Avg cost (USD)</small><b>${avg?n2.format(avg):"–"}</b></div>
     </div>`;
 }
-let stockDrawKey=null;
+let stockDrawKey=null, gaugeAnim=false, levelsAnim=false;
 function openPosition(tk,C){
-  stockDrawKey=null;
+  stockDrawKey=null; gaugeAnim=true;
   const p=C.now.positions.find(x=>x.ticker===tk); if(!p) return;
   const ts=sortedTrades().filter(t=>t.ticker===tk).reverse();
   const avg = p.shares>0 ? p.cost/p.shares : 0;
@@ -1265,11 +1339,14 @@ function openPosition(tk,C){
     ${newsFor(tk).length?`<div class="eyebrow">Latest news</div><div class="list" style="box-shadow:none;border:1px solid var(--line)">${newsFor(tk).slice(0,5).map(n=>newsRow(n)).join("")}</div>`:""}
     <div class="actions"><button class="btn" id="pClose">Close</button><span class="grow"></span>${S.canWrite&&p.shares>0?`<button class="btn primary" id="pSell">Sell…</button>`:""}</div>`);
   $("#pClose").onclick=closeModal;
+  staggerIn(document.querySelector("#veil .sheet"));
   const sb=$("#pSell"); if(sb) sb.onclick=()=>openTrade(null,{side:"SELL",ticker:p.ticker,name:p.name,ccy:p.ccy});
   const buys=effTrades().filter(t=>t.ticker===tk && t.side==="BUY" && t.price>0);
   const draw=()=>{
     document.querySelectorAll("#sRanges button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.r===S.stockRange)));
+    slidePill($("#sRanges"),'[aria-pressed="true"]');
     const s=stockSeries(tk), box=$("#sChart");
+    const gIn=gaugeAnim, lvIn=levelsAnim; gaugeAnim=false; levelsAnim=false;
     const paint=(v,label)=>paintNow(v,label);
     const paintNow=(v,label)=>{ const val=v==null?s.pts[s.pts.length-1].v:v;
       const X=L&&L.ext&&L.ext.base>0?L.ext:null;
@@ -1290,18 +1367,23 @@ function openPosition(tk,C){
         const fills=effTrades().filter(t=>t.ticker===tk&&t.side==="BUY"&&t.price>0), entry=fills.length?fills.reduce((a,t)=>a+t.price*(+t.usd||0),0)/fills.reduce((a,t)=>a+(+t.usd||0),0):null;
         const hit=px<=LV.stop?'<span class="pill sell">STOP HIT</span>':px>=LV.target?'<span class="pill buy">TARGET HIT</span>':"";
         const cp=pos(px), al=cp<18?"left":cp>82?"right":"center";
-        li.innerHTML=`<div class="gauge">
+        li.innerHTML=`<div class="gauge${gIn&&!RM()?" in":""}">
           <div class="g-now num" style="left:${cp}%;text-align:${al};transform:translateX(${al==="left"?"-6px":al==="right"?"calc(-100% + 6px)":"-50%"})">${hit||esc(fmtLocal(px,p.ccy))}</div>
           <div class="g-bar"><i class="g-dot" style="left:${cp}%"></i>${entry?`<i class="g-entry" style="left:${pos(entry)}%" title="entry"></i>`:""}</div>
           <div class="g-ends num"><span class="down"><span>SL ${esc(fmtLocal(LV.stop,p.ccy))}</span><b>${fmtPct(ds)}</b></span><span class="flat">${entry?`<span>Entry</span><span>${esc(fmtLocal(entry,p.ccy))}</span>`:""}</span><span class="up"><span>TP ${esc(fmtLocal(LV.target,p.ccy))}</span><b>${fmtPct(dt)}</b></span></div></div>`;
-      } else li.innerHTML=`<div class="g-off">See how close the price is to your stop loss and take profit.</div>`; }
+      } else li.innerHTML=`<div class="g-off">See how close the price is to your stop loss and take profit.</div>`;
+      if(gIn) retrigger(li,"swap"); }
     const dk2=tk+"|"+S.stockRange; const drawIn2=dk2!==stockDrawKey; stockDrawKey=dk2;
-    lineChart(box,s.pts,s.base,{h:180,drawIn:drawIn2,markers:marks,levels,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
+    lineChart(box,s.pts,s.base,{h:180,drawIn:drawIn2,markers:marks,levels,levelsIn:lvIn,aria:tk+" price",onScrub:q=>paint(q.v,q.label),onLeave:()=>paint(),
       onRange:(a,b)=>{ setHTML($("#sBig"),esc(fmtLocal(b.v,p.ccy))); setHTML($("#sChg"),chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>fmtLocal(x,p.ccy))); }});
     $("#sNote").innerHTML = (marks.length?'<span style="color:var(--accent)">●</span> your fill · ':"")+"Prices in "+esc(p.ccy)+({"1d":", 10-min steps","1w":", hourly steps","1m":", 4-hour steps","ytd":", daily closes","1y":", daily closes","max":", daily closes"}[S.stockRange]||"");
   };
   document.querySelectorAll("#sRanges button").forEach(b=>b.onclick=()=>{ S.stockRange=b.dataset.r; try{localStorage.setItem("gtc.srange",S.stockRange);}catch(e){} draw(); });
-  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked; draw(); /* on by default every time the site opens */ };
+  const lt=$("#lvT"); if(lt) lt.onchange=()=>{ S.showLevels=lt.checked;  /* on by default every time the site opens */
+    if(lt.checked||RM()){ gaugeAnim=true; levelsAnim=true; draw(); return; }
+    const lv=document.querySelector("#sChart svg .lvl"); if(lv) lv.classList.add("lv-out");  /* fade the lines out, then redraw */
+    const li=$("#lvInfo"); if(li) li.style.cssText="transition:opacity .16s;opacity:0";
+    setTimeout(()=>{ if(li) li.style.cssText=""; gaugeAnim=true; draw(); },170); };
   draw();
   sheetRefresh=C2=>{ const q=C2.now.positions.find(x=>x.ticker===tk); if(!q) return;
     L=livePx()[tk];
@@ -1347,7 +1429,7 @@ function openTrade(t, preset){
       <div class="actions">${edit?`<button type="button" class="btn danger" id="del">Delete</button>`:""}<span class="grow"></span><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn primary" id="save">Save</button></div>
     </form>`);
   const g=id=>document.getElementById(id);
-  const setSide=s=>{ side=s; document.querySelectorAll("#side button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.s===s))); g("buyF").hidden=s!=="BUY"; g("sellF").hidden=s!=="SELL"; upd(); };
+  const setSide=s=>{ side=s; document.querySelectorAll("#side button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.s===s))); slidePill($("#side"),'[aria-pressed="true"]'); g("buyF").hidden=s!=="BUY"; g("sellF").hidden=s!=="SELL"; upd(); };
   document.querySelectorAll("#side button").forEach(b=>b.onclick=()=>setSide(b.dataset.s));
   g("f_tk").addEventListener("input",()=>{
     const k=g("f_tk").value.trim().toUpperCase().replace(/\s+EQUITY$/,"");
