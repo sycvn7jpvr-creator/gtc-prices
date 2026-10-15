@@ -1017,7 +1017,7 @@ async function staticBoot(){
     if(!Array.isArray(tr)){ S.dbState="none"; render(); return; }
     S.trades=tr; S.prices=Array.isArray(pr)?pr:[]; if(st) S.settings=Object.assign({},S.settings,st);
     S.market={latest:la,history:hi}; S.got={trades:true,prices:true}; S.dbState="ok";
-    $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~5 minutes.";
+    $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~6 minutes.";
     render();
   };
   await load(); setInterval(load,60*1000);
