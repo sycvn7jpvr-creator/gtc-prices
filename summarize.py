@@ -39,24 +39,44 @@ def load(p, default):
         return default
 
 
-def call_model(prompt):
-    token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        raise RuntimeError("GITHUB_TOKEN missing")
-    body = json.dumps({"model": MODEL, "temperature": 0.2, "max_tokens": 220,
+ENDPOINTS = [  # (url, model) tried in order; the first that answers is used for the rest of the run
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4.1-mini"),
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4o-mini"),
+    ("https://models.inference.ai.azure.com/chat/completions", "gpt-4o-mini"),
+]
+_working = []
+
+
+def _post(url, model, prompt, token):
+    body = json.dumps({"model": model, "temperature": 0.2, "max_tokens": 220,
                        "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}).encode()
-    req = urllib.request.Request(ENDPOINT, data=body, method="POST", headers={
-        "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json"})
+    req = urllib.request.Request(url, data=body, method="POST", headers={
+        "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28"})
     try:
         with urllib.request.urlopen(req, timeout=40) as r:
             raw, code = r.read(), r.status
     except urllib.error.HTTPError as e:
         raw, code = e.read(), e.code
     try:
-        data = json.loads(raw)
-        return data["choices"][0]["message"]["content"].strip()
+        return json.loads(raw)["choices"][0]["message"]["content"].strip()
     except Exception:
-        raise RuntimeError(f"HTTP {code}: {raw[:240]!r}")
+        raise RuntimeError(f"{url.split('/')[2]} {model}: HTTP {code}: {raw[:160]!r}")
+
+
+def call_model(prompt):
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN missing")
+    errors = []
+    for url, model in (_working or ENDPOINTS):
+        try:
+            text = _post(url, model, prompt, token)
+            _working[:] = [(url, model)]
+            return text, model
+        except Exception as e:
+            errors.append(str(e))
+    raise RuntimeError(" || ".join(errors)[:600])
 
 
 def main():
@@ -86,13 +106,13 @@ def main():
         lines = "\n".join(f"- {time.strftime('%d %b', time.gmtime(n['ts']))} | {n.get('source', '')} | {n['title']}" for n in top)
         prompt = f"Company: {names.get(bbg, bbg)} (Bloomberg ticker {bbg}).\n{move}Recent headlines, newest first:\n{lines}"
         try:
-            text = call_model(prompt)
+            text, used = call_model(prompt)
             st["calls"] += 1
-            out["items"][bbg] = {"text": text, "n": len(top), "hash": h, "ts": int(time.time()), "model": MODEL}
+            out["items"][bbg] = {"text": text, "n": len(top), "hash": h, "ts": int(time.time()), "model": used}
             st.pop("error", None)
             done += 1
         except Exception as e:
-            st["error"] = f"{type(e).__name__}: {e}"[:300]
+            st["error"] = f"{type(e).__name__}: {e}"[:700]
             print("summary error:", st["error"])
             break
     out["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
