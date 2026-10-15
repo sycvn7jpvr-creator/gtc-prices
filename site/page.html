@@ -98,14 +98,17 @@ button.row:hover{background:var(--sunk)}
 .pill.wait{background:var(--accent-soft);color:var(--accent)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
-.mg{grid-column:1/-1;margin-top:6px}
-.mg-none{height:0;margin:0}
-.mg-bar{position:relative;height:6px;border-radius:3px}
-.mg-bar::before{content:"";position:absolute;inset:0;border-radius:inherit;opacity:.42;background:linear-gradient(90deg,var(--down) 0%,var(--down-soft) 30%,var(--sunk) 50%,var(--up-soft) 70%,var(--up) 100%)}  /* toned down so the P&L figures stand out */
-.mg-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translate(-50%,-50%)}
+.mg{grid-column:1/-1;margin-top:8px;display:grid;font-size:11px;grid-template-columns:6.2em minmax(0,1fr) 6.2em;align-items:center;gap:10px;
+  background:var(--sunk);border-radius:10px;padding:7px 10px;transition:background .3s}
+.mg-none{display:none}
+.mg.near-sl{background:var(--down-soft)}
+.mg.near-tp{background:var(--up-soft)}
+.mg-l{font-weight:600;white-space:nowrap}
+.mg-l.up{text-align:right}
+.mg-bar{position:relative;height:6px;border-radius:3px;background:var(--surface)}
+.mg-bar::before{content:"";position:absolute;inset:0;border-radius:inherit;opacity:.7;background:linear-gradient(90deg,var(--down) 0%,transparent 42%,transparent 58%,var(--up) 100%)}
+.mg-dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translate(-50%,-50%);box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .mg-entry{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--muted);transform:translateX(-50%)}
-.mg-lab{display:flex;justify-content:space-between;font-size:11px;font-weight:500;margin-top:4px}
-.mg-lab span{opacity:.6}
 .pill.hit{background:var(--alert-bg);color:var(--alert-fg)}
 .alertbox{background:var(--alert-bg);color:var(--alert-fg);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(217,45,32,.35)}
 .al-h{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:17px}
@@ -946,9 +949,12 @@ function miniGauge(p){
   const fills=effTrades().filter(t=>t.ticker===p.ticker&&t.side==="BUY"&&t.price>0);
   const entry=fills.length?fills.reduce((a,t)=>a+t.price*(+t.usd||0),0)/fills.reduce((a,t)=>a+(+t.usd||0),0):null;
   const ds=LV.stop/px-1, dt=LV.target/px-1;
-  return `<div class="mg" title="SL ${nPx(LV.stop)} (${fmtPct(ds)}) · TP ${nPx(LV.target)} (${fmtPct(dt)})">
+  /* within 3% of a level: the panel takes that level's colour */
+  const near=ds>-0.03?" near-sl":dt<0.03?" near-tp":"";
+  return `<div class="mg${near}" title="SL ${nPx(LV.stop)} (${fmtPct(ds)}) · TP ${nPx(LV.target)} (${fmtPct(dt)})">
+    <span class="mg-l num down">SL ${fmtPct(ds)}</span>
     <div class="mg-bar">${entry?`<i class="mg-entry" style="left:${pos(entry)}%"></i>`:""}<i class="mg-dot" style="left:${pos(px)}%"></i></div>
-    <div class="mg-lab num"><span class="down">SL ${fmtPct(ds)}</span><span class="up">TP ${fmtPct(dt)}</span></div></div>`;
+    <span class="mg-l num up">TP ${fmtPct(dt)}</span></div>`;
 }
 let prevVals=null;
 function flashRows(ps){
