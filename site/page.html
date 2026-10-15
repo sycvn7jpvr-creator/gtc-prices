@@ -440,7 +440,7 @@ function lineChart(box,pts,base,opts){
   opts=opts||{};
   const W=Math.max(260,box.clientWidth||400), H=opts.h||190, pT=14, pB=14;
   const marks=opts.markers||[], bench=opts.bench||[], hl=opts.levels||[];
-  const all=pts.map(p=>p.v).concat(bench.map(p=>p.v),marks.map(m=>m.v),[base]);
+  const all=pts.map(p=>p.v).concat(bench.map(p=>p.v),(opts.scaleWith||[]),marks.map(m=>m.v),[base]);  /* scaleWith: values that set the scale even when not drawn */
   let lo=Math.min(...all), hi=Math.max(...all);
   if(hi-lo<=0){ const e=Math.abs(hi)*0.01||1; hi+=e; lo-=e; }
   const pad=(hi-lo)*0.1; lo-=pad; hi+=pad;
@@ -626,7 +626,7 @@ function renderChart(C,R){
   $("#legend").hidden=!(bench.length>1);
   const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
-  lineChart(area,R.pts,R.base,{bench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
+  lineChart(area,R.pts,R.base,{bench,scaleWith:benchAll.map(p=>p.v),aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
     onRange:(a,b)=>{ $("#total").innerHTML=bigMoney(b.v); $("#chg").innerHTML=chgLine(b.v-a.v,a.v,a.label+" → "+b.label,x=>usd2.format(x)); paintBm(a,b); }});
 }
 
