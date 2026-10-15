@@ -96,6 +96,12 @@ button.row:hover{background:var(--sunk)}
 .pill.cap{background:var(--down-soft);color:var(--down)}
 .pill.mkt{background:var(--sunk);color:var(--muted)}
 a.row.news{display:block;color:inherit;text-decoration:none}
+.nfilter{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.nfilter::-webkit-scrollbar{display:none}
+.nfilter button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.nfilter button b{font-weight:500;color:var(--muted);margin-left:2px}
+.nfilter button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.nfilter button[aria-pressed="true"] b{color:var(--bg);opacity:.7}
 a.row.news:hover{background:var(--sunk)}
 .news-t{white-space:normal;line-height:1.35;font-weight:600}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -178,8 +184,8 @@ label.f .hint{font-weight:400;font-size:12px}
 
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
-    <button role="tab" data-tab="trades" aria-selected="false">Trades</button>
     <button role="tab" data-tab="news" aria-selected="false">News</button>
+    <button role="tab" data-tab="trades" aria-selected="false">Trades</button>
     <button role="tab" data-tab="prices" aria-selected="false">Data</button>
   </nav>
 
@@ -200,9 +206,9 @@ const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
   got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
-  market:{latest:null,history:null}, stockRange:"1d", news:null
+  market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all"
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
 
 /* ---------- formatting ---------- */
 const usd0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -613,12 +619,18 @@ function newsRow(n,stock){
 }
 function newsFor(tk){ return ((S.news&&S.news.items)||{})[tk]||[]; }
 function renderNews(C){
-  const all=[];
-  for(const p of C.now.positions) for(const n of newsFor(p.ticker)) all.push({n,stock:{name:p.name||p.ticker,ticker:p.ticker}});
+  const all=[], held=C.now.positions;
+  if(S.newsFilter!=="all" && !held.some(p=>p.ticker===S.newsFilter)) S.newsFilter="all";
+  for(const p of held) if(S.newsFilter==="all"||S.newsFilter===p.ticker) for(const n of newsFor(p.ticker)) all.push({n,stock:{name:p.name||p.ticker,ticker:p.ticker}});
   all.sort((a,b)=>b.n.ts-a.n.ts);
+  const filt=`<div class="nfilter" role="group" aria-label="Filter news by stock">
+    <button type="button" data-nf="all" aria-pressed="${S.newsFilter==="all"}">All</button>
+    ${held.map(p=>`<button type="button" data-nf="${esc(p.ticker)}" aria-pressed="${S.newsFilter===p.ticker}">${esc(p.name||p.ticker)} <b>${newsFor(p.ticker).length}</b></button>`).join("")}</div>`;
   $("#view").innerHTML=`<section class="sec"><div class="sec-h"><h2>News</h2><span>${S.news&&S.news.updated?"updated "+ago(Date.parse(S.news.updated)/1000):""}</span></div>
-    <div class="list">${all.length?all.slice(0,60).map(x=>newsRow(x.n,x.stock)).join(""):`<div class="empty">${S.news?"No headlines in the last 14 days.":"Headlines appear on the public site and refresh every hour."}</div>`}</div>
+    ${held.length?filt:""}
+    <div class="list">${all.length?all.slice(0,60).map(x=>newsRow(x.n,S.newsFilter==="all"?x.stock:null)).join(""):`<div class="empty">${S.news?"No headlines in the last 14 days.":"Headlines appear on the public site and refresh every few minutes."}</div>`}</div>
     <p class="foot" style="text-align:left;margin:0">Headlines from Yahoo Finance and Google News for the stocks you hold, last 14 days. Tap one to read it on the publisher's site. Matching is by company name, so now and then an unrelated story slips in.</p></section>`;
+  document.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>{ S.newsFilter=b.dataset.nf; try{localStorage.setItem("gtc.nf",S.newsFilter);}catch(e){} render(); });
 }
 
 /* ---------- views ---------- */
