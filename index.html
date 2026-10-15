@@ -559,7 +559,7 @@ let heroState=null;
 function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
 function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   const h=heroState, B=h&&h.bench, el=$("#bmLine"); if(!el) return;
-  if(!B||B.length<2||!a||!b){ el.innerHTML=""; return; }
+  if(!S.showBench||!B||B.length<2||!a||!b){ el.innerHTML=""; return; }
   const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
   const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
   el.innerHTML=`<span class="${cls(br)}" style="font-weight:600">WLS ${fmtPct(br)}<small>same period</small></span>`;
@@ -572,7 +572,7 @@ function paintHero(v,label,x){
   const P=h.pts; if(P&&P.length) paintBm({x:P[0].x,v:h.base}, v==null?P[P.length-1]:{x,v});
 }
 function renderHero(C,R){
-  heroState={tot:C.now.total,base:R.base,label:R.label,bench:null,pts:R.pts};
+  heroState={tot:C.now.total,base:R.base,label:R.label,bench:R.pts.length>1?benchSeries(R):null,pts:R.pts};
   paintHero();
   const up=S.market.latest&&S.market.latest.updated;
   $("#fresh").textContent = up ? (()=>{ const m=Math.round((Date.now()-Date.parse(up))/60000);
