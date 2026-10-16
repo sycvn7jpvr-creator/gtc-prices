@@ -165,8 +165,6 @@ a.row.news{display:block;color:inherit;text-decoration:none}
 .msum-bar .p{background:var(--up)} .msum-bar .n{background:var(--down)} .msum-bar .u{background:var(--line)}
 .msum-l{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
 .msum-l b{font-weight:700}
-.npill{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 6px;border-radius:6px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
-.npill.positive{background:var(--up-soft);color:var(--up)} .npill.negative{background:var(--down-soft);color:var(--down)}
 .mmini{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:11px;font-weight:600;color:var(--muted);margin-top:3px;white-space:nowrap}
 .mmini i{width:7px;height:7px;border-radius:50%;background:var(--line);flex:none}
 .mmini.positive i{background:var(--up)} .mmini.negative i{background:var(--down)}
@@ -959,8 +957,6 @@ function moodSummary(tk){
 function moodTone(tk){ const c=moodCounts(tk), t=c.positive+c.negative+c.neutral; if(!t) return null;
   const tone=c.neutral>c.positive+c.negative?["neutral","Mostly neutral"]:c.positive>c.negative?["positive",c.positive>=2*c.negative+1?"Mostly positive":"Leaning positive"]:c.negative>c.positive?["negative",c.negative>=2*c.positive+1?"Mostly negative":"Leaning negative"]:["neutral","Mixed"];
   return {c,t,k:tone[0],txt:tone[1]}; }
-function moodPill(tk){ const m=moodTone(tk); if(!m) return "";
-  return `<span class="npill ${m.k}" title="News mood, last 7 days (FinBERT): ${m.txt} · ${m.c.positive} positive · ${m.c.neutral} neutral · ${m.c.negative} negative">News ${m.k==="positive"?"▲":m.k==="negative"?"▼":"●"}</span>`; }
 function moodMini(tk){ const m=moodTone(tk); if(!m) return "";
   return `<div class="mmini ${m.k}" title="News mood, last 7 days (FinBERT): ${m.c.positive} positive · ${m.c.neutral} neutral · ${m.c.negative} negative"><i></i>News: ${m.txt}</div>`; }
 /* negative news (≥70% sure, last 3 days) while the price is within 5% of the stop loss */
@@ -1110,9 +1106,9 @@ function renderOverview(C){
     const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
       <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
-        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${moodPill(p.ticker)}${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}${S.hits&&S.hits[p.ticker]?`<span class="pill hit">${S.hits[p.ticker]} HIT</span>`:""}</div></div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}${S.hits&&S.hits[p.ticker]?`<span class="pill hit">${S.hits[p.ticker]} HIT</span>`:""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
-        <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
+        <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div>${moodMini(p.ticker)}</div>
       ${miniGauge(p)}${watchHTML(stopWatch(p))}
     </button>`;
   }).join("");
