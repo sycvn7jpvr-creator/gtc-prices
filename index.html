@@ -197,6 +197,12 @@ a.row.news{display:block;color:inherit;text-decoration:none}
 .nf-list button:hover,.nf-list button[aria-selected="true"]{background:var(--sunk)}
 a.row.news:hover{background:var(--sunk)}
 .news-t{white-space:normal;line-height:1.35;font-weight:600}
+.row.news .r-sub{margin-top:8px;row-gap:6px}  /* a little air between headline and tags */
+/* position rows: name level with value, ticker line level with P&L, same sizes left and right */
+[data-pos].row{align-items:start}
+[data-pos] .r-name,[data-pos] .r-val{font-size:15px;line-height:22px}
+[data-pos] .r-sub,[data-pos] .r-pl{font-size:13px;line-height:20px;margin-top:2px}
+[data-pos] .r-sub{row-gap:2px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip{display:inline-flex;align-items:baseline;gap:6px;background:var(--accent-soft);color:var(--ink);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:600;max-width:100%}
 .chip i{font-style:normal;font-family:var(--f-mono);font-size:11px;font-weight:500;color:var(--accent);white-space:nowrap}
