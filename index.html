@@ -189,7 +189,10 @@ a.row.news{display:block;color:inherit;text-decoration:none}
 .watch i{font-style:normal;color:var(--accent);font-weight:800}
 .watch.hitnote.sl{background:var(--alert-bg);color:var(--alert-fg)} .watch.hitnote.sl i{color:var(--alert-fg)}
 .watch.hitnote.tp{background:var(--up);color:#fff} .watch.hitnote.tp i{color:#fff}
-.row.cash.has{background:var(--panel)}
+.row.cash.has{background:var(--sunk);box-shadow:inset 4px 0 0 var(--ink)}
+.row.cash.has .r-name{display:flex;align-items:center;gap:8px}
+.row.cash.has .r-val{font-size:17px;font-weight:700}
+.cash-ic{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:12px;font-weight:800;flex:none}
 .row.ev{grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px}
 .ev-d{grid-row:1/3;width:46px;padding:6px 0 5px;border-radius:10px;background:var(--sunk);text-align:center;line-height:1.05}
 .ev-d small{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
@@ -373,9 +376,9 @@ label.f .hint{font-weight:400;font-size:12px}
 
   <section class="chart" id="chartBox">
     <div class="ranges" id="ranges">
-      <button data-r="1d" aria-pressed="false">1D</button>
+      <button data-r="1d" aria-pressed="true">1D</button>
       <button data-r="7" aria-pressed="false">1W</button>
-      <button data-r="all" aria-pressed="true">All</button>
+      <button data-r="all" aria-pressed="false">All</button>
     </div>
     <div id="chartArea"><div class="chart-empty">Loading your trades…</div></div>
     <div class="chart-foot">
@@ -409,10 +412,10 @@ const $ = s => document.querySelector(s);
 const S = {
   db:null, user:null, myId:null, canWrite:true, dbState:"loading",
   trades:[], prices:[], settings:{startCapital:1000000,start:"2026-10-14",end:"2026-11-13",name:"Europe Group A"},
-  got:{trades:false,prices:false}, tab:"overview", range:"all", names:{},
+  got:{trades:false,prices:false}, tab:"overview", range:"1d", names:{},
   market:{latest:null,history:null}, stockRange:"1d", news:null, newsFilter:"all", levels:{}, showLevels:true, showBench:false
 };
-try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; const r = localStorage.getItem("gtc.range"); if(r==="1d"||r==="7"||r==="all") S.range=r; const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
+try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; /* the portfolio chart always opens on 1D (no remembered range) */ const sr=localStorage.getItem("gtc.srange"); if(["1d","1w","1m","ytd","1y","max"].includes(sr)) S.stockRange=sr; const nf=localStorage.getItem("gtc.nf"); if(nf) S.newsFilter=nf; }catch(e){}
 
 /* ---------- motion ---------- */
 const RM=()=>!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -1160,7 +1163,9 @@ function renderOverview(C){
   }).join("");
   if(!ps.length) rows=`<div class="empty">No positions yet. Tap <b>+ Trade</b> to log your first buy.</div>`;
   const cashW=n.cash/tot;
-  const cashRow = `<div class="row cash${n.cash>=0.5?" has":""}"><div><div class="r-name">Cash</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`;
+  const cashRow = n.cash>=0.5
+    ? `<div class="row cash has"><div><div class="r-name"><span class="cash-ic" aria-hidden="true">$</span>Cash available</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio · ready to invest</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`
+    : `<div class="row cash"><div><div class="r-name">Cash</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`;
   $("#view").innerHTML=`
   <section class="stats num">
     <div><small>Invested</small><b>${usd0.format(tot-n.cash)}</b></div>
@@ -1283,7 +1288,7 @@ function setTab(t){ const from=TAB_ORDER.indexOf(S.tab), to=TAB_ORDER.indexOf(t)
   fadeSwap(go,()=>$("#view"));
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; try{localStorage.setItem("gtc.range",S.range);}catch(e){} render(); });
+document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{ S.range=b.dataset.r; render(); });
 /* only a width change needs a redraw: iPhone Safari fires "resize" whenever its toolbar shrinks or grows while scrolling */
 let rz, lastW=innerWidth; window.addEventListener("resize",()=>{ if(innerWidth===lastW) return; lastW=innerWidth; clearTimeout(rz); rz=setTimeout(()=>{ if(lastC) renderSoon(); },120); });
 
