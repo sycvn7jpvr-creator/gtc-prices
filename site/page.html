@@ -1163,7 +1163,7 @@ function renderOverview(C){
   }).join("");
   if(!ps.length) rows=`<div class="empty">No positions yet. Tap <b>+ Trade</b> to log your first buy.</div>`;
   const cashW=n.cash/tot;
-  const cashRow = n.cash>=0.5
+  const cashRow = n.cash>=1000  /* highlighted only when there is real money to invest */
     ? `<div class="row cash has"><div><div class="r-name"><span class="cash-ic" aria-hidden="true">$</span>Cash available</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio · ready to invest</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`
     : `<div class="row cash"><div><div class="r-name">Cash</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`;
   $("#view").innerHTML=`
