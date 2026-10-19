@@ -8,6 +8,7 @@ the level, the position is closed "using the same costing method that was used w
 
 Writes data/exits.json: {bbg: {"kind": "SL"|"TP", "ts", "date", "px", "lvl", "fx", "shares", "basis"}}.
 An exit, once recorded, is never changed or removed: the position is over from that moment.
+Fields added by hand are kept: "manual" (price corrected to the real TMSG fill) and "ack" (seen: hide from the list).
 """
 import json
 from pathlib import Path
@@ -72,16 +73,22 @@ def main():
         except Exception as e:
             print(f"exits {tk}: no data ({type(e).__name__})")
             continue
+        prev_day = None
         for idx, r in h.iterrows():
             ts = int(idx.timestamp())
+            day = idx.strftime("%Y-%m-%d")
+            first_bar = day != prev_day  # first 5-minute bar of a trading day (opening auction)
+            prev_day = day
             if ts + 300 <= b["fill_ts"]:  # bar ended before our fill
                 continue
             o, lo, hi = r["Open"] / scale, r["Low"] / scale, r["High"] / scale
             hit = None
+            # triggered at the open (first bar): TMSG fills at the opening price (seen with ChipMOS on 19 Oct:
+            # TMSG cash implied 102.39 TWD vs a 99.90 stop); otherwise at the level, or the open on a gap
             if stop and lo <= stop:  # stop checked first: if both levels sit in one bar, assume the worse case
-                hit = ("SL", stop, o if o <= stop else stop, "gap open" if o <= stop else "stop level")
+                hit = ("SL", stop, o, "opening price") if first_bar else ("SL", stop, o if o <= stop else stop, "gap open" if o <= stop else "stop level")
             elif target and hi >= target:
-                hit = ("TP", target, o if o >= target else target, "gap open" if o >= target else "target level")
+                hit = ("TP", target, o, "opening price") if first_bar else ("TP", target, o if o >= target else target, "gap open" if o >= target else "target level")
             if hit:
                 kind, lvl, px, basis = hit
                 exits[tk] = {"kind": kind, "ts": ts, "date": idx.strftime("%Y-%m-%d"), "px": round(float(px), 6),

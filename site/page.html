@@ -187,6 +187,9 @@ a.row.news{display:block;color:inherit;text-decoration:none}
 .row.hit-sl .mg,.row.hit-tp .mg{background:var(--surface)}
 .watch{grid-column:1/-1;display:flex;gap:8px;align-items:flex-start;margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font-size:12px;font-weight:600;line-height:1.35}
 .watch i{font-style:normal;color:var(--accent);font-weight:800}
+.watch.hitnote.sl{background:var(--alert-bg);color:var(--alert-fg)} .watch.hitnote.sl i{color:var(--alert-fg)}
+.watch.hitnote.tp{background:var(--up);color:#fff} .watch.hitnote.tp i{color:#fff}
+.row.cash.has{background:var(--panel)}
 .row.ev{grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px}
 .ev-d{grid-row:1/3;width:46px;padding:6px 0 5px;border-radius:10px;background:var(--sunk);text-align:center;line-height:1.05}
 .ev-d small{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
@@ -511,7 +514,7 @@ function effTrades(){
     const b=EFF.find(t=>t.ticker===tk&&t.side==="BUY"); if(!b||!(e.px>0)) continue;
     EFF.push({id:"auto-"+tk, side:"SELL", ticker:tk, name:b.name, ccy:b.ccy, shares:1e15, price:e.px, fx:b.ccy==="USD"?1:(e.fx||b.fx),
       date:e.date, effDate:e.date, effTs:e.ts, createdAt:new Date(e.ts*1000).toISOString(), auto:e.kind,
-      note:(e.kind==="SL"?"Stop loss hit":"Take profit hit")+" · closed automatically by TMSG at "+(e.basis==="gap open"?"the first price after the gap":"the "+(e.kind==="SL"?"stop":"target")+" level")});
+      note:(e.kind==="SL"?"Stop loss hit":"Take profit hit")+" · closed automatically by TMSG at "+(e.manual?"the real TMSG price":e.basis==="opening price"?"the opening price":e.basis==="gap open"?"the first price after the gap":"the "+(e.kind==="SL"?"stop":"target")+" level")});
   }
   return EFF;
 }
@@ -1054,7 +1057,7 @@ function renderNews(C){
 /* first time a position's price touched its SL or TP after the fill; shown for 24 h from that moment */
 function levelHits(C){  /* recorded exits from the last 24 h */
   const now=Date.now()/1000, out=[];
-  for(const c of (C.now.closed||[])){ const e=c.exit; if(now-e.ts<86400) out.push({kind:e.kind,ts:e.ts,px:e.px,lvl:e.lvl,p:c}); }
+  for(const c of (C.now.closed||[])){ const e=c.exit; if(exitShown(c)) out.push({kind:e.kind,ts:e.ts,px:e.px,lvl:e.lvl,p:c}); }
   return out.sort((a,b)=>b.ts-a.ts);
 }
 function renderAlerts(C){
@@ -1105,6 +1108,9 @@ function miniGauge(p){
     <div class="mg-bar">${entry?`<i class="mg-entry" style="left:${pos(entry)}%"></i>`:""}<i class="mg-dot" style="left:${pos(px)}%"></i></div>
     <span class="mg-l num up">TP ${fmtPct(dt)}</span></div>`;
 }
+/* a closed position stays visible (list + alert) until it was seen ("ack") or 24 h after the exit;
+   the sale itself stays in Orders and the money in cash */
+const exitShown=c=>c&&c.exit&&!c.exit.ack&&Date.now()/1000-c.exit.ts<86400;
 /* a position closed by its stop loss / take profit: frozen at the exit */
 function closedRow(p){
   const e=p.exit, sl=e.kind==="SL", r=p.cost>0?p.unreal/p.cost:0;
@@ -1114,8 +1120,8 @@ function closedRow(p){
       <div class="r-sub"><span class="tk">${esc(p.ticker)}</span><span class="num">sold at ${nPx(e.px)} ${esc(p.ccy)}</span></div></div>
     <div><div class="r-val num">${usd0.format(p.value)}</div>
       <div class="r-pl num ${cls(p.unreal)}">${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}</div></div>
-    <div class="hitbar ${sl?"sl":"tp"}"><b>${sl?"STOP LOSS HIT":"TAKE PROFIT HIT"}</b><span class="num">closed ${when}</span></div>
     ${miniGauge(p)}
+    <div class="watch hitnote ${sl?"sl":"tp"}"><i>!</i><span>${sl?"Stop loss":"Take profit"} hit: TMSG closed the position automatically on ${when} at ${nPx(e.px)} ${esc(p.ccy)}.</span></div>
   </button>`;
 }
 let prevVals=null;
@@ -1127,7 +1133,8 @@ function flashRows(ps){
 }
 function renderOverview(C){
   const n=C.now, tot=n.total||1;
-  const ps=n.positions.concat(n.closed||[]).sort((a,b)=>b.value-a.value);  /* by value: winners on top; closed ones frozen at the exit */
+  const shownClosed=(n.closed||[]).filter(exitShown);
+  const ps=n.positions.concat(shownClosed).sort((a,b)=>b.value-a.value);  /* by value: winners on top; closed ones frozen at the exit */
   const investedPl = n.positions.reduce((s,p)=>s+p.unreal,0);
   let rows = ps.map(p=>{
     if(p.closed) return closedRow(p);
@@ -1153,7 +1160,7 @@ function renderOverview(C){
   }).join("");
   if(!ps.length) rows=`<div class="empty">No positions yet. Tap <b>+ Trade</b> to log your first buy.</div>`;
   const cashW=n.cash/tot;
-  const cashRow = `<div class="row"><div><div class="r-name">Cash</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`;
+  const cashRow = `<div class="row cash${n.cash>=0.5?" has":""}"><div><div class="r-name">Cash</div><div class="r-sub">${n2.format(cashW*100)}% of portfolio</div></div><div class="r-val num">${usd0.format(n.cash)}</div></div>`;
   $("#view").innerHTML=`
   <section class="stats num">
     <div><small>Invested</small><b>${usd0.format(tot-n.cash)}</b></div>
@@ -1161,7 +1168,7 @@ function renderOverview(C){
     <div><small>Realized</small><b class="${cls(n.realized)}">${fmtUsdS(n.realized).replace(/\.\d\d$/,"")}</b></div>
   </section>
   <section class="sec">
-    <div class="sec-h"><h2>Positions</h2><span>${n.positions.length} open${(n.closed||[]).length?` · ${n.closed.length} closed`:""} · bar = stop loss → take profit</span></div>
+    <div class="sec-h"><h2>Positions</h2><span>${n.positions.length} open${shownClosed.length?` · ${shownClosed.length} closed`:""} · bar = stop loss → take profit</span></div>
     <div class="list">${rows}${cashRow}</div>
   </section>
   ${renderMarkets(C)}`;
