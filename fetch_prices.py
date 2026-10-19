@@ -172,6 +172,18 @@ def main():
     except Exception as e:
         latest["errors"].append(f"benchmark {BENCH_SYM}: {type(e).__name__}: {e}"[:200])
 
+    # candidate WLS proxy, recorded alongside for comparison (not used by the website yet)
+    try:
+        rows = daily("VT", 1.0)
+        lb = last_bar("VT", 1.0)
+        same = next((row for row in rows if lb and row[0] == lb["d"]), None)
+        if same and same[2]:
+            lb["p"] = same[2]
+        prev = next((row[2] for row in reversed(rows) if lb and row[0] < lb["d"]), None)
+        latest["bench_alt"] = {"sym": "VT", "p": lb["p"], "d": lb["d"], "t": lb["t"], "prev": prev}
+    except Exception as e:
+        latest["errors"].append(f"VT: {type(e).__name__}: {e}"[:200])
+
     OUT.mkdir(exist_ok=True)
     (OUT / "latest.json").write_text(json.dumps(latest, separators=(",", ":")))
     # tiny file the website polls every 30 s to know when to reload the big ones
