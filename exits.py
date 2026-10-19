@@ -2,14 +2,15 @@
 
 In the Bloomberg Trading Challenge (TMSG) a stop loss / target is an auto-close trigger: once the price reaches
 the level, the position is closed "using the same costing method that was used when the position was opened"
-(our opening trades used Next Tick). So the exit is the next trade after the level is touched:
-  - level crossed inside a 5-minute bar  -> filled at the level itself
-  - price gapped through the level       -> filled at the bar's opening price (first trade after the gap)
+(our opening trades used Next Tick). TMSG notices the trigger with a short delay, so the exit is modelled as
+the first trade after the 5-minute bar in which the level was touched (= opening price of the next bar).
+Real TMSG prices can be entered by hand ("manual": true) and are then kept.
 
 Writes data/exits.json: {bbg: {"kind": "SL"|"TP", "ts", "date", "px", "lvl", "fx", "shares", "basis"}}.
 An exit, once recorded, is never changed or removed: the position is over from that moment.
 Fields added by hand are kept: "manual" (price corrected to the real TMSG fill) and "ack" (seen: hide from the list).
 """
+import datetime
 import json
 from pathlib import Path
 
@@ -62,39 +63,42 @@ def main():
             b["shares"] += (t.get("usd") or 0) / (t["price"] * fx)
             ts = t.get("fillTs")
             b["fill_ts"] = ts if b["fill_ts"] is None else min(b["fill_ts"], ts or b["fill_ts"])
+    model = {}  # what the model says for every position, also for exits already recorded (to compare with TMSG)
     for tk, b in buys.items():
         lv = levels.get(tk) or {}
         stop, target = lv.get("stop") or 0, lv.get("target") or 0
-        if tk in exits or not (stop or target) or not b["fill_ts"]:
+        if not (stop or target) or not b["fill_ts"]:
             continue
         try:
             sym, ccy, scale = to_yahoo(tk)
-            h = yf.Ticker(sym).history(period="5d", interval="5m", auto_adjust=False).dropna(subset=["Low", "High"])
+            h = yf.Ticker(sym).history(period="5d", interval="5m", auto_adjust=False).dropna(subset=["Open", "Low", "High"])
         except Exception as e:
             print(f"exits {tk}: no data ({type(e).__name__})")
             continue
-        prev_day = None
-        for idx, r in h.iterrows():
-            ts = int(idx.timestamp())
-            day = idx.strftime("%Y-%m-%d")
-            first_bar = day != prev_day  # first 5-minute bar of a trading day (opening auction)
-            prev_day = day
+        rows = [(int(i.timestamp()), r["Open"] / scale, r["Low"] / scale, r["High"] / scale) for i, r in h.iterrows()]
+        for k, (ts, o, lo, hi) in enumerate(rows):
             if ts + 300 <= b["fill_ts"]:  # bar ended before our fill
                 continue
-            o, lo, hi = r["Open"] / scale, r["Low"] / scale, r["High"] / scale
-            hit = None
-            # triggered at the open (first bar): TMSG fills at the opening price (seen with ChipMOS on 19 Oct:
-            # TMSG cash implied 102.39 TWD vs a 99.90 stop); otherwise at the level, or the open on a gap
-            if stop and lo <= stop:  # stop checked first: if both levels sit in one bar, assume the worse case
-                hit = ("SL", stop, o, "opening price") if first_bar else ("SL", stop, o if o <= stop else stop, "gap open" if o <= stop else "stop level")
-            elif target and hi >= target:
-                hit = ("TP", target, o, "opening price") if first_bar else ("TP", target, o if o >= target else target, "gap open" if o >= target else "target level")
-            if hit:
-                kind, lvl, px, basis = hit
-                exits[tk] = {"kind": kind, "ts": ts, "date": idx.strftime("%Y-%m-%d"), "px": round(float(px), 6),
-                             "lvl": lvl, "fx": fx_at(ccy, ts, fx_cache), "shares": b["shares"], "basis": basis}
-                print(f"exits {tk}: {kind} at {px} ({basis}) {idx}")
+            # stop checked first: if both levels sit in one bar, assume the worse case
+            kind = "SL" if stop and lo <= stop else "TP" if target and hi >= target else None
+            if not kind:
+                continue
+            # TMSG closes with Next Tick, and it reacts with a short delay: the sale is the first trade AFTER
+            # the 5-minute bar in which the level was touched (checked against ChipMOS 19 Oct: TMSG sold at
+            # 102.39 TWD during the bounce right after a 99.90 stop was touched at the open)
+            if k + 1 >= len(rows):
+                print(f"exits {tk}: {kind} touched in the latest bar, waiting for the next trade")
                 break
+            nts, nopen = rows[k + 1][0], rows[k + 1][1]
+            model[tk] = {"kind": kind, "ts": ts, "fill_ts": nts, "px": round(float(nopen), 6),
+                         "lvl": stop if kind == "SL" else target, "fx": fx_at(ccy, nts, fx_cache), "shares": b["shares"]}
+            if tk not in exits:
+                m = model[tk]
+                exits[tk] = {"kind": kind, "ts": ts, "date": datetime.datetime.fromtimestamp(nts, datetime.timezone.utc).strftime("%Y-%m-%d"),
+                             "px": m["px"], "lvl": m["lvl"], "fx": m["fx"], "shares": b["shares"], "basis": "next tick after the trigger"}
+                print(f"exits {tk}: {kind} touched {ts}, sold at {m['px']} (next tick)")
+            break
+    (DATA / "exits_model.json").write_text(json.dumps(model, separators=(",", ":")))
     (DATA / "exits.json").write_text(json.dumps(exits, separators=(",", ":")))
     print(f"exits: {len(exits)} recorded")
 
