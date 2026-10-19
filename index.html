@@ -838,11 +838,11 @@ let heroState=null;
 function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
 function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
   const h=heroState, B=h&&h.bench, el=$("#bmLine"); if(!el) return;
-  if(!B||B.length<2||!a||!b){ el.innerHTML=""; return; }  /* WLS % always shown; the switch only controls the chart line */
+  if(!B||B.length<2||!a||!b){ setHTML(el,""); return; }  /* WLS % always shown; the switch only controls the chart line */
   const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
   const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
   const arrow=br>0?"▲":br<0?"▼":"";  /* same form as the portfolio line above: arrow + % first, then what it is */
-  el.innerHTML=`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`;
+  setHTML(el,`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`);
 }
 let tween=null;
 function paintHero(v,label,x){
@@ -883,7 +883,9 @@ function benchSeries(R){
   if(R.intraday){ const key=(x1-x0)<=1.25?"i":"w"; src=((B&&B[key])||[]).map(b=>({x:b[0]/86400,v:b[1]})); }
   else { src=((H&&H.rows)||[]).map(r=>({x:dayNum(r[0]),v:r[2]})); if(B&&B.p&&B.d&&(!src.length||dayNum(B.d)>src[src.length-1].x)) src.push({x:dayNum(B.d),v:B.p}); }
   src=src.filter(p=>p.v>0).sort((a,b)=>a.x-b.x);
-  const before=src.filter(p=>p.x<=x0).pop(), inR=src.filter(p=>p.x>x0&&p.x<=x1+1e-6);
+  let before=src.filter(p=>p.x<=x0).pop(); const inR=src.filter(p=>p.x>x0&&p.x<=x1+1e-6);
+  /* no price before the window (e.g. Monday: intraday data only covers today): start at the previous close */
+  if(!before && R.intraday && B && B.prev>0 && inR.length) before={x:x0,v:B.prev};
   const s0=before||inR[0]; if(!s0) return [];
   const out=[{x:x0,v:s0.v},...inR]; const last=out[out.length-1];
   if(last.x<x1) out.push({x:x1,v:last.v});
