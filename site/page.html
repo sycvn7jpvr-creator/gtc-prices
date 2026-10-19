@@ -514,7 +514,7 @@ function effTrades(){
     const b=EFF.find(t=>t.ticker===tk&&t.side==="BUY"); if(!b||!(e.px>0)) continue;
     EFF.push({id:"auto-"+tk, side:"SELL", ticker:tk, name:b.name, ccy:b.ccy, shares:1e15, price:e.px, fx:b.ccy==="USD"?1:(e.fx||b.fx),
       date:e.date, effDate:e.date, effTs:e.ts, createdAt:new Date(e.ts*1000).toISOString(), auto:e.kind,
-      note:(e.kind==="SL"?"Stop loss hit":"Take profit hit")+" · closed automatically by TMSG at "+(e.manual?"the real TMSG price":e.basis==="opening price"?"the opening price":e.basis==="gap open"?"the first price after the gap":"the "+(e.kind==="SL"?"stop":"target")+" level")});
+      note:(e.kind==="SL"?"Stop loss hit":"Take profit hit")+" · closed automatically by TMSG at "+(e.manual?"the real TMSG price":"about the next trade after the trigger (estimate)")});
   }
   return EFF;
 }
@@ -1121,7 +1121,7 @@ function closedRow(p){
     <div><div class="r-val num">${usd0.format(p.value)}</div>
       <div class="r-pl num ${cls(p.unreal)}">${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}</div></div>
     ${miniGauge(p)}
-    <div class="watch hitnote ${sl?"sl":"tp"}"><i>!</i><span>${sl?"Stop loss":"Take profit"} hit: TMSG closed the position automatically on ${when} at ${nPx(e.px)} ${esc(p.ccy)}.</span></div>
+    <div class="watch hitnote ${sl?"sl":"tp"}"><i>!</i><span>${sl?"Stop loss":"Take profit"} hit: TMSG closed the position automatically on ${when} at ${e.manual?"":"about "}${nPx(e.px)} ${esc(p.ccy)}${e.manual?"":" (estimate until the TMSG price is entered)"}.</span></div>
   </button>`;
 }
 let prevVals=null;
