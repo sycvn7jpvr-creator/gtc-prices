@@ -72,7 +72,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* tabs */
 .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;padding-block:8px;border-bottom:1px solid var(--line)}
-.tabs button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:10px;font-weight:600;color:var(--muted)}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 4px;border-radius:10px;font-weight:600;color:var(--muted);white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 
 /* notices */
@@ -122,6 +122,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .al-n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .al-d{grid-column:2;font-size:13px;opacity:.92}
 .al-f{font-size:12px;opacity:.9}
+.al-list{display:flex;flex-direction:column;gap:6px}
+.al-bar{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:12px;padding:9px 12px;text-align:left;font-size:14px;color:var(--alert-fg);background:var(--alert-bg);box-shadow:0 3px 10px rgba(217,45,32,.22)}
+.al-bar.tp{background:var(--up);color:#fff;box-shadow:0 3px 10px rgba(14,138,85,.22)}
+.al-bar .al-i{width:20px;height:20px;font-size:13px}
+.al-bar.tp .al-i{background:#fff;color:var(--up)}
+.al-bar .al-n{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-bar .al-n b{font-weight:800}
+.al-bar .al-d{flex:none;font-size:12px;opacity:.92;white-space:nowrap}
+.al-bar .al-go{flex:none;font-size:18px;line-height:1;opacity:.85}
 .tabs button.alert{color:var(--alert-bg)}
 .tabs button.alert[aria-selected="true"]{color:var(--alert-bg)}
 .bang{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--alert-bg);color:var(--alert-fg);font-size:12px;font-weight:800;margin-left:4px;vertical-align:1px}
@@ -1056,11 +1065,10 @@ function renderAlerts(C){
   if(!hits.length){ box.innerHTML=""; return; }
   const nSL=hits.filter(h=>h.kind==="SL").length, nTP=hits.length-nSL;
   const head=[nSL?`Stop loss hit for ${nSL} stock${nSL>1?"s":""}`:"",nTP?`Take profit hit for ${nTP} stock${nTP>1?"s":""}`:""].filter(Boolean).join(" · ");
-  box.innerHTML=`<section class="alertbox" role="alert"><div class="al-h"><span class="al-i" aria-hidden="true">!</span>${head}</div>
-    ${hits.map(h=>`<button type="button" class="al-row" data-hit="${esc(h.p.ticker)}"><span class="al-k">${h.kind==="SL"?"STOP LOSS":"TAKE PROFIT"}</span>
-      <span class="al-n">${esc(h.p.name||h.p.ticker)}</span>
-      <span class="al-d num">sold at ${nPx(h.px)} ${esc(h.p.ccy)} · ${ago(h.ts)}</span></button>`).join("")}
-    <div class="al-f">TMSG closes the position automatically when a level is hit. The position stays in the list, frozen at the exit. This note clears after 24 h.</div></section>`;
+  /* compact: one slim bar per stock (tap opens it); clears 24 h after the exit */
+  box.innerHTML=`<section class="al-list" role="alert" aria-label="${esc(head)}">${hits.map(h=>`<button type="button" class="al-bar ${h.kind==="SL"?"sl":"tp"}" data-hit="${esc(h.p.ticker)}" title="TMSG closed the position automatically. Clears 24 h after the exit.">
+      <span class="al-i" aria-hidden="true">!</span><span class="al-n"><b>${h.kind==="SL"?"Stop loss":"Take profit"}</b> · ${esc(h.p.name||h.p.ticker)}</span>
+      <span class="al-d num">${ago(h.ts)}</span><span class="al-go" aria-hidden="true">›</span></button>`).join("")}</section>`;
   box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C));
 }
 
