@@ -62,20 +62,23 @@ def daily(sym, scale):
 NOW_TS = dt.datetime.now(dt.timezone.utc).timestamp()
 
 
-def series(sym, scale, period, interval, rule=None, since_hours=None):
+def series(sym, scale, period, interval, rule=None, since_hours=None, anchor_last=False):
     """Closes as [[unix_ts, price], ...], optionally resampled (e.g. '10min', '4h')."""
     h = yf.Ticker(sym).history(period=period, interval=interval, auto_adjust=False).dropna(subset=["Close"])
     c = h["Close"]
     if rule and not c.empty:
         c = c.resample(rule, origin="epoch", label="left", closed="left").last().dropna()
-    if since_hours:
-        c = c[[i.timestamp() >= NOW_TS - since_hours * 3600 for i in c.index]]
+    if since_hours and not c.empty:
+        # counted back from the last trade, not from now: before the open (weekend, Monday morning)
+        # the 1-day chart then shows the last trading day instead of nothing
+        anchor = c.index[-1].timestamp() if anchor_last else NOW_TS
+        c = c[[i.timestamp() >= anchor - since_hours * 3600 for i in c.index]]
     return [[int(i.timestamp()), r(v / scale)] for i, v in c.items()], h
 
 
 def last_bar(sym, scale, with_month=False):
     """Latest price plus chart series: i = 10-min (30 h), w = hourly (8 days), m = 4-hour (35 days)."""
-    intra, raw = series(sym, scale, "5d", "5m", "10min", since_hours=30)
+    intra, raw = series(sym, scale, "5d", "5m", "10min", since_hours=30, anchor_last=True)
     if raw.empty:
         return None
     t = raw.index[-1]
