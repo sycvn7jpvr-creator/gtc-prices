@@ -3,7 +3,8 @@
 In the Bloomberg Trading Challenge (TMSG) a stop loss / target is an auto-close trigger: once the price reaches
 the level, the position is closed "using the same costing method that was used when the position was opened"
 (our opening trades used Next Tick). TMSG notices the trigger with a short delay, so the exit is modelled as
-the first trade after the 5-minute bar in which the level was touched (= opening price of the next bar).
+the price ~5-10 minutes after the level was touched (close of the 5-minute bar after the trigger bar),
+calibrated on the ChipMOS stop on 19 Oct 2026 (TMSG sold at 102.50 TWD).
 Real TMSG prices can be entered by hand ("manual": true) and are then kept.
 
 Writes data/exits.json: {bbg: {"kind": "SL"|"TP", "ts", "date", "px", "lvl", "fx", "shares", "basis"}}.
@@ -75,27 +76,28 @@ def main():
         except Exception as e:
             print(f"exits {tk}: no data ({type(e).__name__})")
             continue
-        rows = [(int(i.timestamp()), r["Open"] / scale, r["Low"] / scale, r["High"] / scale) for i, r in h.iterrows()]
-        for k, (ts, o, lo, hi) in enumerate(rows):
+        rows = [(int(i.timestamp()), r["Open"] / scale, r["Low"] / scale, r["High"] / scale, r["Close"] / scale) for i, r in h.iterrows()]
+        for k, (ts, o, lo, hi, cl) in enumerate(rows):
             if ts + 300 <= b["fill_ts"]:  # bar ended before our fill
                 continue
             # stop checked first: if both levels sit in one bar, assume the worse case
             kind = "SL" if stop and lo <= stop else "TP" if target and hi >= target else None
             if not kind:
                 continue
-            # TMSG closes with Next Tick, and it reacts with a short delay: the sale is the first trade AFTER
-            # the 5-minute bar in which the level was touched (checked against ChipMOS 19 Oct: TMSG sold at
-            # 102.39 TWD during the bounce right after a 99.90 stop was touched at the open)
+            # TMSG closes with Next Tick, but reacts with a delay of roughly 5-10 minutes. Calibrated on ChipMOS,
+            # 19 Oct: 99.90 stop touched in the first 5 minutes after the open (01:00 UTC), TMSG sold at
+            # 102.50 TWD (= TMSG cash 91,557 USD), the price about 10 minutes later. Model: the price at the
+            # end of the 5-minute bar after the trigger bar (close of bar k+1, ~5-10 min after the touch).
             if k + 1 >= len(rows):
                 print(f"exits {tk}: {kind} touched in the latest bar, waiting for the next trade")
                 break
-            nts, nopen = rows[k + 1][0], rows[k + 1][1]
-            model[tk] = {"kind": kind, "ts": ts, "fill_ts": nts, "px": round(float(nopen), 6),
+            nts, nclose = rows[k + 1][0] + 300, rows[k + 1][4]
+            model[tk] = {"kind": kind, "ts": ts, "fill_ts": nts, "px": round(float(nclose), 6),
                          "lvl": stop if kind == "SL" else target, "fx": fx_at(ccy, nts, fx_cache), "shares": b["shares"]}
             if tk not in exits:
                 m = model[tk]
                 exits[tk] = {"kind": kind, "ts": ts, "date": datetime.datetime.fromtimestamp(nts, datetime.timezone.utc).strftime("%Y-%m-%d"),
-                             "px": m["px"], "lvl": m["lvl"], "fx": m["fx"], "shares": b["shares"], "basis": "next tick after the trigger"}
+                             "px": m["px"], "lvl": m["lvl"], "fx": m["fx"], "shares": b["shares"], "basis": "about 5-10 min after the trigger (TMSG next tick)"}
                 print(f"exits {tk}: {kind} touched {ts}, sold at {m['px']} (next tick)")
             break
     (DATA / "exits_model.json").write_text(json.dumps(model, separators=(",", ":")))
