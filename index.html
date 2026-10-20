@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
 <style>
 /* Layout: one phone-width column; a big-number hero and line chart up top, then positions, trades and prices behind a sticky tab bar. Terminal amber marks tickers. */
 :root{
@@ -1264,6 +1264,9 @@ function renderPrices(C){
 let lastC=null;
 function render(){
   renderClock();
+  if(S.dbState==="retry"){
+    $("#view").innerHTML=`<div class="note"><div><b>Couldn't load the data just now.</b> Trying again automatically… (check your connection if this stays)</div></div>`; return;
+  }
   if(S.dbState==="none"){
     $("#view").innerHTML=`<div class="note"><div><b>Shared data isn't available in this view.</b> Open the page on claude.ai while signed in to see and log trades.</div></div>`;
     $("#chartArea").innerHTML=""; $("#fab").hidden=true; return;
@@ -1680,18 +1683,24 @@ render();
 /* Public read-only copy (GitHub Pages): same page, data from JSON files next to it */
 async function staticBoot(){
   S.canWrite=false;
-  const get=async f=>{ try{ const r=await fetch("data/"+f+"?t="+Date.now(),{cache:"no-store"}); return r.ok? await r.json():null; }catch(e){ return null; } };
+  /* every file gets a time limit, so one slow or stuck file can never keep the page blank */
+  const get=async(f,ms)=>{ const ctl=typeof AbortController!=="undefined"?new AbortController():null; const tm=ctl?setTimeout(()=>ctl.abort(),ms||10000):0;
+    try{ const r=await fetch("data/"+f+"?t="+Date.now(),{cache:"no-store",signal:ctl?ctl.signal:undefined}); return r.ok? await r.json():null; }catch(e){ return null; } finally{ clearTimeout(tm); } };
   const load=async()=>{
-    const [tr,st,pr,la,hi,nw,lv,ev,ex]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","history.json","news.json","levels.json","events.json","exits.json"].map(get));
+    /* 1) what the portfolio needs: shown as soon as it is here */
+    const [tr,st,pr,la,lv,ex]=await Promise.all(["trades.json","settings.json","prices.json","latest.json","levels.json","exits.json"].map(f=>get(f)));
     if(ex) S.exits=ex;
     /* a file that fails to load (e.g. while GitHub is publishing) keeps its last good copy */
-    if(nw) S.news=nw; if(ev) S.events=ev; if(lv) S.levels=lv; else S.levels=S.levels||{};
-    if(!Array.isArray(tr)){ if(!S.got.trades){ S.dbState="none"; render(); } return false; }
+    if(lv) S.levels=lv; else S.levels=S.levels||{};
+    if(!Array.isArray(tr)){ if(!S.got.trades){ S.dbState="retry"; render(); } return false; }
     S.trades=tr; if(Array.isArray(pr)) S.prices=pr; else S.prices=S.prices||[]; if(st) S.settings=Object.assign({},S.settings,st);
-    S.market={latest:la||S.market.latest,history:hi||S.market.history}; S.got={trades:true,prices:true}; S.dbState="ok";
+    S.market={latest:la||S.market.latest,history:S.market.history}; S.got={trades:true,prices:true}; S.dbState="ok";
     $("#foot").textContent="Read-only view. Values in USD, prices from Yahoo Finance (~15 min delayed), new prices every ~6 minutes.";
     if(!document.querySelector("#nfPop:not([hidden])")) renderSoon();  // don't close the stock picker mid-search
-    return !!(la && hi);
+    /* 2) long price history, news and events fill in afterwards, each on its own */
+    const later=[["history.json",v=>{ S.market={latest:S.market.latest,history:v}; }],["news.json",v=>{ S.news=v; }],["events.json",v=>{ S.events=v; }]];
+    const res=await Promise.all(later.map(([f,apply])=>get(f,15000).then(v=>{ if(v){ apply(v); if(!document.querySelector("#nfPop:not([hidden])")) renderSoon(); } return v; })));
+    return !!(la && res[0]);
   };
   // live updates: poll a tiny stamp file; reload the data only when it changed
   let stamp=null, first=true, busy=false;
@@ -1701,7 +1710,7 @@ async function staticBoot(){
     if(now && now===stamp) { if(lastC && !scrubbing && !scrollingNow() && !document.querySelector("#nfPop:not([hidden])")) renderHero(lastC,rangePoints(lastC)); return; }
     if(busy) return; busy=true;
     let ok=false; try{ ok=await load(); }catch(e){} busy=false;
-    if(!ok) return;  /* try again on the next check */
+    if(!ok){ if(!S.got.trades||first) setTimeout(check,4000); return; }  /* not everything arrived: try again soon */
     if(!first && now && now!==stamp) toast("Prices updated");
     stamp=now||stamp; first=false;
   };
