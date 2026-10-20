@@ -80,8 +80,11 @@ def main():
         for k, (ts, o, lo, hi, cl) in enumerate(rows):
             if ts + 300 <= b["fill_ts"]:  # bar ended before our fill
                 continue
+            if lv.get("since") and ts + 300 <= lv["since"]:  # levels entered in TMSG later than the fill
+                continue
             # stop checked first: if both levels sit in one bar, assume the worse case
-            kind = "SL" if stop and lo <= stop else "TP" if target and hi >= target else None
+            # TMSG Auto Close: "Last Price < stop" / "Last Price > target" (strict)
+            kind = "SL" if stop and lo < stop else "TP" if target and hi > target else None
             if not kind:
                 continue
             # TMSG closes with Next Tick, but reacts with a delay of roughly 5-10 minutes. Calibrated on ChipMOS,
