@@ -1719,7 +1719,22 @@ async function staticBoot(){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) check(); });
   window.addEventListener("focus",check);
 }
+// ---- pause switch: PAUSED=true shows a "paused" page to everyone except the owner's device
+const PAUSED=true, OWNER_HASH="be5483f28c71a3867b603f906afc637e2154086d9577dc77fd0fc6bdf4b31590";
+async function ownerOK(){
+  const sha=async k=>{ try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(k)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }catch(e){ return ""; } };
+  let k=null;
+  try{ const u=new URL(location.href); k=u.searchParams.get("k"); if(k){ u.searchParams.delete("k"); history.replaceState(null,"",u.pathname+u.search+u.hash); } }catch(e){}
+  if(k && await sha(k)===OWNER_HASH){ try{ localStorage.setItem("gtc_owner",k); }catch(e){} return true; }
+  let saved=null; try{ saved=localStorage.getItem("gtc_owner"); }catch(e){}
+  return !!saved && await sha(saved)===OWNER_HASH;
+}
+function showPaused(){
+  document.title="Paused";
+  document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font:500 15px/1.5 -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;color:#6b7280;text-align:center">This page is paused.</div>';
+}
 (async()=>{
+  if(PAUSED && !(await ownerOK())){ showPaused(); return; }
   const cl=window.claude;
   if(!cl || !cl.use){ staticBoot(); return; }
   const [db,user]=await Promise.all([cl.use("db").catch(()=>null), cl.use("user").catch(()=>null)]);
