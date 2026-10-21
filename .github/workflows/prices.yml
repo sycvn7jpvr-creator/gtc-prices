@@ -1,7 +1,10 @@
 name: prices
 on:
-  # started every 6 minutes by cron-job.org (GitHub's own scheduler proved unreliable)
-  workflow_dispatch:
+  # PRIVATE MODE: GitHub's own hourly schedule (2,000 free Actions minutes/month for private repos).
+  # No workflow_dispatch, so the 6-minute calls from cron-job.org are refused and cost nothing.
+  # To go back to public mode: replace the schedule with "workflow_dispatch:" again.
+  schedule:
+    - cron: "17 * * * *"
 permissions:
   contents: write
 concurrency: prices
