@@ -1852,14 +1852,10 @@ function showPaused(){
     if(!v){ ms.className="msg"; ms.textContent="Please enter the characters shown in the image."; return; }
     busy=true; vb.disabled=true; vb.textContent="..."; ms.textContent="";
     await wait(rnd(700,1500));
-    const right=v===code || v.toLowerCase()===code.toLowerCase();
     round++;
     vb.disabled=false; vb.textContent="VERIFY"; busy=false;
-    if(!right){ ms.className="msg"; ms.textContent="Incorrect. Please try again."; draw(); return; }
-    const r=Math.random();
-    if(r<.4){ ms.className="msg"; ms.textContent="The characters did not match. Please try again."; draw(); }
-    else if(r<.75){ ms.className="msg good"; ms.textContent="✓ Verified"; busy=true; await wait(1100); busy=false; ms.textContent=""; ms.className="msg"; hs.textContent="Additional verification required"; nt.textContent="Unusual traffic detected from your network. Please complete one more check."; draw(); }
-    else { ms.className="msg good"; ms.textContent="✓ Verified"; busy=true; await wait(900); ch.classList.remove("on"); cb.className="cb ok"; nt.textContent="Verification successful. Redirecting..."; await wait(rnd(2500,3600)); busy=false; ms.textContent=""; resetBox("Your session has expired. Please verify again."); }
+    // every answer counts as wrong, the right one too
+    ms.className="msg"; ms.textContent="Incorrect. Please try again."; draw();
   }
   vb.addEventListener("click",submit);
   inp.addEventListener("keydown",e=>{ if(e.key==="Enter") submit(); });
