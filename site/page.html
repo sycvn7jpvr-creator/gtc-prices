@@ -1,3 +1,4 @@
+<style id="gate">body{visibility:hidden}</style>
 <title>GTC Mid-Cap Book</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1729,12 +1730,10 @@ async function ownerOK(){
   let saved=null; try{ saved=localStorage.getItem("gtc_owner"); }catch(e){}
   return !!saved && await sha(saved)===OWNER_HASH;
 }
-function showPaused(){
-  document.title="Paused";
-  document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font:500 15px/1.5 -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;color:#6b7280;text-align:center">This page is paused.</div>';
-}
+function showPaused(){ document.body.innerHTML=""; }
 (async()=>{
   if(PAUSED && !(await ownerOK())){ showPaused(); return; }
+  const g=document.getElementById("gate"); if(g) g.remove();
   const cl=window.claude;
   if(!cl || !cl.use){ staticBoot(); return; }
   const [db,user]=await Promise.all([cl.use("db").catch(()=>null), cl.use("user").catch(()=>null)]);

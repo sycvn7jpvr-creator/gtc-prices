@@ -1,4 +1,5 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>GTC Mid-Cap Book</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body><style id="gate">body{visibility:hidden}</style>
+<title>GTC Mid-Cap Book</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1729,12 +1730,10 @@ async function ownerOK(){
   let saved=null; try{ saved=localStorage.getItem("gtc_owner"); }catch(e){}
   return !!saved && await sha(saved)===OWNER_HASH;
 }
-function showPaused(){
-  document.title="Paused";
-  document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font:500 15px/1.5 -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;color:#6b7280;text-align:center">This page is paused.</div>';
-}
+function showPaused(){ document.body.innerHTML=""; }
 (async()=>{
   if(PAUSED && !(await ownerOK())){ showPaused(); return; }
+  const g=document.getElementById("gate"); if(g) g.remove();
   const cl=window.claude;
   if(!cl || !cl.use){ staticBoot(); return; }
   const [db,user]=await Promise.all([cl.use("db").catch(()=>null), cl.use("user").catch(()=>null)]);
