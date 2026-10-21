@@ -1721,7 +1721,7 @@ async function staticBoot(){
   window.addEventListener("focus",check);
 }
 // ---- pause switch: PAUSED=true shows a "paused" page to everyone except the owner's device
-const PAUSED=true, OWNER_HASH="be5483f28c71a3867b603f906afc637e2154086d9577dc77fd0fc6bdf4b31590";
+const PAUSED=false, OWNER_HASH="be5483f28c71a3867b603f906afc637e2154086d9577dc77fd0fc6bdf4b31590";
 async function ownerOK(){
   const sha=async k=>{ try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(k)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }catch(e){ return ""; } };
   let k=null;
