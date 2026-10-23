@@ -197,7 +197,11 @@
   "shares": null,
   "side": "BUY",
   "ticker": "CDNA US",
-  "usd": 92000
+  "usd": 92000,
+  "estPrice": 68.705002,
+  "estTs": 1792762200,
+  "estDate": "2026-10-23",
+  "estFx": 1.0
  },
  {
   "ccy": "USD",
@@ -212,7 +216,11 @@
   "shares": null,
   "side": "BUY",
   "ticker": "HNGE US",
-  "usd": 92000
+  "usd": 92000,
+  "estPrice": 109.690002,
+  "estTs": 1792762200,
+  "estDate": "2026-10-23",
+  "estFx": 1.0
  },
  {
   "ccy": "USD",
@@ -227,7 +235,11 @@
   "shares": null,
   "side": "BUY",
   "ticker": "DK US",
-  "usd": 92000
+  "usd": 92000,
+  "estPrice": 75.970001,
+  "estTs": 1792762200,
+  "estDate": "2026-10-23",
+  "estFx": 1.0
  },
  {
   "ccy": "CHF",
