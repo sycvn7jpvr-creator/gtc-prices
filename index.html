@@ -1140,7 +1140,9 @@ function flashRows(ps){
 function renderOverview(C){
   const n=C.now, tot=n.total||1;
   const shownClosed=(n.closed||[]).filter(exitShown);
-  const ps=n.positions.concat(shownClosed).sort((a,b)=>b.value-a.value);  /* by value: winners on top; closed ones frozen at the exit */
+  /* best to worst by P&L % since entry; closed ones sit where their result at the exit puts them */
+  const plPct=p=>p.cost>0?p.unreal/p.cost:0;
+  const ps=n.positions.concat(shownClosed).sort((a,b)=>plPct(b)-plPct(a)||b.value-a.value);
   const investedPl = n.positions.reduce((s,p)=>s+p.unreal,0);
   let rows = ps.map(p=>{
     if(p.closed) return closedRow(p);
