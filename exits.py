@@ -49,20 +49,53 @@ def fx_at(ccy, ts, cache):
     return float(fx) if fx else None
 
 
+def fill_pending(trades, fx_cache):
+    """Buys entered in TMSG while their market was closed (Next Tick) fill at the next open:
+    estPrice = open of the first regular-session 5-minute bar after the order. Real TMSG prices go in "price"."""
+    changed = False
+    for t in trades:
+        if t.get("side") != "BUY" or (t.get("price") or 0) > 0 or (t.get("estPrice") or 0) > 0 or not t.get("orderTs"):
+            continue
+        try:
+            sym, ccy, scale = to_yahoo(t["ticker"])
+            h = yf.Ticker(sym).history(period="5d", interval="5m", auto_adjust=False).dropna(subset=["Open"])
+        except Exception as e:
+            print(f"fill {t['ticker']}: no data ({type(e).__name__})")
+            continue
+        after = [(i, r) for i, r in h.iterrows() if i.timestamp() >= t["orderTs"]]
+        if not after:
+            print(f"fill {t['ticker']}: market not open yet")
+            continue
+        i, r = after[0]
+        ts = int(i.timestamp())
+        t["estPrice"] = round(float(r["Open"]) / scale, 6)
+        t["estTs"] = ts
+        t["estDate"] = i.strftime("%Y-%m-%d")  # exchange-local day
+        t["estFx"] = fx_at(ccy, ts, fx_cache)
+        changed = True
+        print(f"fill {t['ticker']}: filled at the open {t['estPrice']} {ccy} ({i})")
+    if changed:
+        (DATA / "trades.json").write_text(json.dumps(trades, indent=1, ensure_ascii=False) + "\n")
+
+
 def main():
     trades = load("trades.json", [])
     levels = load("levels.json", {})
     exits = load("exits.json", {})
     fx_cache = {}
+    fill_pending(trades, fx_cache)
     buys = {}
     for t in trades:
-        if t.get("side") == "BUY" and (t.get("price") or 0) > 0:
-            fx = 1.0 if t.get("ccy") == "USD" else (t.get("fx") or 0)
+        # real fill price, else the estimated fill at the open (pending orders)
+        px = (t.get("price") or 0) or (t.get("estPrice") or 0)
+        if t.get("side") == "BUY" and px > 0:
+            real = (t.get("price") or 0) > 0
+            fx = 1.0 if t.get("ccy") == "USD" else ((t.get("fx") if real else t.get("estFx") or t.get("fx")) or 0)
             if fx <= 0:
                 continue
             b = buys.setdefault(t["ticker"], {"shares": 0.0, "fill_ts": None, "ccy": t.get("ccy")})
-            b["shares"] += (t.get("usd") or 0) / (t["price"] * fx)
-            ts = t.get("fillTs")
+            b["shares"] += (t.get("usd") or 0) / (px * fx)
+            ts = t.get("fillTs") if real else t.get("estTs")
             b["fill_ts"] = ts if b["fill_ts"] is None else min(b["fill_ts"], ts or b["fill_ts"])
     model = {}  # what the model says for every position, also for exits already recorded (to compare with TMSG)
     for tk, b in buys.items():
