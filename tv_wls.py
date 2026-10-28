@@ -46,47 +46,57 @@ def _sid(prefix):
     return prefix + "".join(random.choice(string.ascii_lowercase) for _ in range(12))
 
 
-def fetch(resolutions, timeout=40):
-    """{resolution: [[ts, o, h, l, c], ...]} for BBG:WLS."""
+def fetch_one(res, n, timeout=30):
+    """[[ts, o, h, l, c], ...] for one resolution of BBG:WLS, plus errors and the symbol info.
+    Without a login TradingView allows one series per chart session, so every resolution gets its own connection."""
     ws = websocket.create_connection(URL, header=HEADERS, timeout=timeout)
     cs = _sid("cs_")
     send = lambda f, p: ws.send(_frame(f, p))
     send("set_auth_token", ["unauthorized_user_token"])
     send("chart_create_session", [cs, ""])
     send("resolve_symbol", [cs, "sym_1", "=" + json.dumps({"symbol": SYMBOL, "adjustment": "splits", "session": "regular"})])
-    series = {}
-    for k, (res, n) in enumerate(resolutions.items(), 1):
-        series[f"s{k}"] = res
-        send("create_series", [cs, f"sds_{k}", f"s{k}", "sym_1", res, n, ""])
-    bars, done, errors, info = {r: [] for r in resolutions}, 0, [], {}
+    send("create_series", [cs, "sds_1", "s1", "sym_1", res, n, ""])
+    bars, errors, info, done = [], [], {}, False
     end = time.time() + timeout
-    while time.time() < end and done < len(series):
-        raw = ws.recv()
-        for m in _messages(raw):
-            if m.startswith("~h~"):  # heartbeat: echo it back
-                ws.send(f"~m~{len(m)}~m~{m}")
-                continue
-            try:
-                d = json.loads(m)
-            except ValueError:
-                continue
-            kind = d.get("m")
-            if kind == "symbol_resolved":
-                info = d["p"][2] if len(d.get("p", [])) > 2 and isinstance(d["p"][2], dict) else {}
-            elif kind == "timescale_update":  # full history of a series ("du" = live updates, ignored)
-                for key, v in (d.get("p", [None, {}])[1] or {}).items():
-                    k = key.replace("sds_", "s")
-                    if k in series and isinstance(v, dict) and v.get("s"):
-                        bars[series[k]] = [b["v"][:5] for b in v["s"]]
-            elif kind == "series_completed":
-                done += 1
-            elif kind in ("symbol_error", "series_error", "critical_error", "protocol_error"):
-                errors.append(m[:300])
-                if kind != "series_error":
-                    done = len(series)  # give up
-                else:
-                    done += 1
-    ws.close()
+    try:
+        while time.time() < end and not done:
+            raw = ws.recv()
+            for m in _messages(raw):
+                if m.startswith("~h~"):  # heartbeat: echo it back
+                    ws.send(f"~m~{len(m)}~m~{m}")
+                    continue
+                try:
+                    d = json.loads(m)
+                except ValueError:
+                    continue
+                kind = d.get("m")
+                if kind == "symbol_resolved":
+                    info = d["p"][2] if len(d.get("p", [])) > 2 and isinstance(d["p"][2], dict) else {}
+                elif kind == "timescale_update":  # full history of the series ("du" = live updates, ignored)
+                    v = (d.get("p", [None, {}])[1] or {}).get("sds_1")
+                    if isinstance(v, dict) and v.get("s"):
+                        bars = [b["v"][:5] for b in v["s"]]
+                elif kind == "series_completed":
+                    done = True
+                elif kind in ("symbol_error", "series_error", "critical_error", "protocol_error"):
+                    errors.append(m[:300])
+                    done = True
+    finally:
+        ws.close()
+    return bars, errors, info
+
+
+def fetch(resolutions):
+    """{resolution: bars}, all errors, symbol info."""
+    bars, errors, info = {}, [], {}
+    for res, n in resolutions.items():
+        try:
+            b, e, i = fetch_one(res, n)
+        except Exception as ex:
+            b, e, i = [], [f"{res}: {type(ex).__name__}: {ex}"[:200]], {}
+        bars[res] = b
+        errors += e
+        info = info or i
     return bars, errors, info
 
 
