@@ -239,7 +239,7 @@ a.row.news:hover{background:var(--sunk)}
 .wbar i.over{background:var(--down);opacity:1}
 .wbar u{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--down);text-decoration:none;opacity:.6}
 .empty{padding:22px 16px;color:var(--muted);text-align:center;font-size:14px}
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
 .stats div{background:var(--surface);padding:12px 14px;min-width:0}
 .stats small{display:block;font-size:12px;color:var(--muted)}
 .stats b{display:block;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -255,7 +255,7 @@ a.row.news:hover{background:var(--sunk)}
 .veil{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;cursor:pointer;touch-action:none;overscroll-behavior:contain}
 .sheet{cursor:auto;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .sheet>*{flex-shrink:0}
-@media (max-width:360px){.stats div{padding:11px 9px}}
+@media (max-width:560px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .stats b small{display:inline;font-size:12px;font-weight:500;color:var(--muted)}
 .stats b.two{white-space:normal;line-height:1.3}
 .x{position:sticky;top:0;align-self:flex-end;margin-bottom:-50px;z-index:3;width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:16px;line-height:36px;padding:0;flex:none}
@@ -367,7 +367,6 @@ label.f .hint{font-weight:400;font-size:12px}
       <div class="big num" id="total">$1,000,000<span class="cents">.00</span></div>
       <div class="chg num" id="chg"></div>
       <div class="chg num bmline" id="bmLine"></div>
-      <div class="chg num bmline" id="relLine"></div>
     </section>
     <div class="clock">
       <span class="eyebrow" id="clockLbl">Challenge</span>
@@ -506,6 +505,29 @@ function estimateFill(t){
   return {date, price, fx: feedFxAt(t.ccy,date) || t.fx};
 }
 let EFF=null;
+/* Relative P&L the way the Bloomberg leaderboard ranks it (checked against it for Fri 23 Oct):
+   every position's P&L minus what the same dollars would have made in the WLS while the position was held,
+   from the WLS close on the fill day to the exit (or now). Cash is not benchmarked. */
+function relativePl(C){
+  const H=S.market.history&&S.market.history.bench, L=S.market.latest&&S.market.latest.bench;
+  const rows=((H&&H.rows)||[]).slice(); if(L&&L.d&&L.p>0&&(!rows.length||rows[rows.length-1][0]<L.d)) rows.push([L.d,null,L.p]);
+  if(rows.length<2) return null;
+  const bAt=d=>{ let v=null; for(const r of rows){ if(r[0]<=d) v=r[2]; else break; } return v; };
+  const bNow=L&&L.p>0?L.p:rows[rows.length-1][2];
+  const open={}; for(const p of C.now.positions) open[p.ticker]=p;
+  let rel=0, any=false;
+  for(const t of effTrades()){
+    if(t.side!=="BUY"||!(t.price>0)) continue;
+    const fx=t.ccy==="USD"?1:t.fx, usd=+t.usd||0, sh=usd/(t.price*fx), e=S.exits&&S.exits[t.ticker], p=open[t.ticker];
+    let val, b1;
+    if(e&&e.px>0){ val=sh*e.px*(t.ccy==="USD"?1:(e.fx||fx)); b1=bAt(e.date); }
+    else if(p&&p.px>0){ val=sh*p.px*(t.ccy==="USD"?1:(p.fxNow||fx)); b1=bNow; }
+    else continue;
+    const b0=bAt(t.effDate||t.date); if(!(b0>0&&b1>0)) continue;
+    rel+=(val-usd)-usd*(b1/b0-1); any=true;
+  }
+  return any?rel:null;
+}
 function effTrades(){
   if(EFF) return EFF;
   EFF = S.trades.map(t=>{
@@ -840,16 +862,12 @@ function chgLine(d,base,label,money){
 let heroState=null;
 function benchAt(B,x){ let r=null; for(const p of B){ if(p.x<=x+1e-9) r=p.v; else break; } return r; }
 function paintBm(a,b){  // a, b: {x,v} points on the portfolio curve
-  const h=heroState, B=h&&h.bench, el=$("#bmLine"), rl=$("#relLine"); if(!el) return;
-  if(!B||B.length<2||!a||!b){ setHTML(el,""); if(rl) setHTML(rl,""); return; }  /* WLS % always shown; the switch only controls the chart line */
+  const h=heroState, B=h&&h.bench, el=$("#bmLine"); if(!el) return;
+  if(!B||B.length<2||!a||!b){ setHTML(el,""); return; }  /* WLS % always shown; the switch only controls the chart line */
   const b0=benchAt(B,a.x)||B[0].v, b1=benchAt(B,b.x)||B[B.length-1].v;
   const br=b1/b0-1, pr=a.v?b.v/a.v-1:0, ex=pr-br;
   const arrow=br>0?"▲":br<0?"▼":"";  /* same form as the portfolio line above: arrow + % first, then what it is */
   setHTML(el,`<span class="${cls(br)}">${arrow} ${n2.format(Math.abs(br*100))}%<small>WLS Index, same period</small></span>`);
-  /* Relative P&L, what the competition ranks by: our return minus the WLS return over the same period,
-     in % points and in dollars (our P&L minus what the same money would have made in the WLS) */
-  if(rl){ const exUsd=ex*a.v, ar=ex>0?"▲":ex<0?"▼":"";
-    setHTML(rl,`<span class="${cls(ex)}">${ar} ${n2.format(Math.abs(ex*100))}% · ${usd0.format(Math.abs(Math.round(exUsd)))}<small>Relative P&amp;L vs WLS</small></span>`); }
 }
 let tween=null;
 function paintHero(v,label,x){
@@ -1150,6 +1168,7 @@ function renderOverview(C){
   const plPct=p=>p.cost>0?p.unreal/p.cost:0;
   const ps=n.positions.concat(shownClosed).sort((a,b)=>plPct(b)-plPct(a)||b.value-a.value);
   const investedPl = n.positions.reduce((s,p)=>s+p.unreal,0);
+  const relPl = relativePl(C);
   let rows = ps.map(p=>{
     if(p.closed) return closedRow(p);
     const w=p.value/tot, pend=p.pending>0;
@@ -1182,6 +1201,7 @@ function renderOverview(C){
     <div><small>Invested</small><b>${usd0.format(tot-n.cash)}</b></div>
     <div><small>Open P&amp;L</small><b class="${cls(investedPl)}">${fmtUsdS(investedPl).replace(/\.\d\d$/,"")}</b></div>
     <div><small>Realized</small><b class="${cls(n.realized)}">${fmtUsdS(n.realized).replace(/\.\d\d$/,"")}</b></div>
+    <div><small>Relative P&amp;L</small><b class="${relPl==null?"":cls(relPl)}">${relPl==null?"–":fmtUsdS(relPl).replace(/\.\d\d$/,"")}</b></div>
   </section>
   <section class="sec">
     <div class="sec-h"><h2>Positions</h2><span>${n.positions.length} open${shownClosed.length?` · ${shownClosed.length} closed`:""} · bar = stop loss → take profit</span></div>
