@@ -1,0 +1,1 @@
+{"checked":"2026-10-28T14:48:46Z","symbol":"BBG:WLS","errors":["{\"m\":\"critical_error\",\"p\":[\"cs_yayixptcdswz\",\"exceed limit of series in the session\",\"method: create_series. args: \\\"[sds_2, s2, sym_1, 5, 400, ]\\\"\"]}"],"name":null,"timezone":"Etc/UTC","session":null,"bars":{"1D":0,"5":0,"60":0},"ok":false,"error":"RuntimeError: too little daily data (0 bars)"}
