@@ -255,6 +255,8 @@ a.row.news:hover{background:var(--sunk)}
 .veil{position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;cursor:pointer;touch-action:none;overscroll-behavior:contain}
 .sheet{cursor:auto;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .sheet>*{flex-shrink:0}
+.stats .rel{display:block;font-size:12.5px;font-weight:500;margin-top:1px}
+@media (max-width:360px){.stats div{padding:11px 9px}}
 .stats b small{display:inline;font-size:12px;font-weight:500;color:var(--muted)}
 .stats b.two{white-space:normal;line-height:1.3}
 .x{position:sticky;top:0;align-self:flex-end;margin-bottom:-50px;z-index:3;width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:16px;line-height:36px;padding:0;flex:none}
@@ -550,7 +552,7 @@ function buildObs(){
 function at(arr,d){ if(!arr) return null; let r=null; for(const o of arr){ if(o.date<=d) r=o; else break; } return r; }
 
 function run(d, obs){
-  const pos={}, results={}; let cash=S.settings.startCapital||0, realized=0;
+  const pos={}, results={}; let cash=S.settings.startCapital||0, realized=0, realizedCost=0;
   for(const t of sortedTrades()){
     if(t.effDate>d) break;
     const p = pos[t.ticker] = pos[t.ticker] || {ticker:t.ticker,name:t.name,ccy:t.ccy,shares:0,cost:0,pending:0,pendingIds:[],est:false};
@@ -568,7 +570,7 @@ function run(d, obs){
       const proceeds = sh*t.price*fx;
       const avg = p.shares>0 ? p.cost/p.shares : 0;
       const costOut = avg*sh, pl = proceeds-costOut;
-      realized+=pl; cash+=proceeds; p.shares-=sh; p.cost-=costOut;
+      realized+=pl; realizedCost+=costOut; cash+=proceeds; p.shares-=sh; p.cost-=costOut;
       p.proceeds=(p.proceeds||0)+proceeds; p.realPl=(p.realPl||0)+pl; p.costOut=(p.costOut||0)+costOut; p.soldShares=(p.soldShares||0)+sh;
       if(p.shares<1e-7){ p.shares=0; p.cost=0; }
       results[t.id]={proceeds,pl,ret: costOut>0?pl/costOut:0, shares:sh};
@@ -590,7 +592,7 @@ function run(d, obs){
     p.value = mv + p.pending; p.unreal = mv - p.cost;
     invested += p.value; list.push(p);
   }
-  return {cash, realized, positions:list, closed, total: cash+invested, results};
+  return {cash, realized, realizedCost, positions:list, closed, total: cash+invested, results};
 }
 
 function compute(){
@@ -1144,6 +1146,7 @@ function renderOverview(C){
   const plPct=p=>p.cost>0?p.unreal/p.cost:0;
   const ps=n.positions.concat(shownClosed).sort((a,b)=>plPct(b)-plPct(a)||b.value-a.value);
   const investedPl = n.positions.reduce((s,p)=>s+p.unreal,0);
+  const openCost = n.positions.reduce((s,p)=>s+(p.cost||0),0);  /* relative P&L: open vs. cost of open positions, realized vs. cost of what was sold */
   let rows = ps.map(p=>{
     if(p.closed) return closedRow(p);
     const w=p.value/tot, pend=p.pending>0;
@@ -1174,8 +1177,8 @@ function renderOverview(C){
   $("#view").innerHTML=`
   <section class="stats num">
     <div><small>Invested</small><b>${usd0.format(tot-n.cash)}</b></div>
-    <div><small>Open P&amp;L</small><b class="${cls(investedPl)}">${fmtUsdS(investedPl).replace(/\.\d\d$/,"")}</b></div>
-    <div><small>Realized</small><b class="${cls(n.realized)}">${fmtUsdS(n.realized).replace(/\.\d\d$/,"")}</b></div>
+    <div><small>Open P&amp;L</small><b class="${cls(investedPl)}">${fmtUsdS(investedPl).replace(/\.\d\d$/,"")}</b><span class="rel ${cls(investedPl)}">${fmtPct(openCost>0?investedPl/openCost:0)}</span></div>
+    <div><small>Realized</small><b class="${cls(n.realized)}">${fmtUsdS(n.realized).replace(/\.\d\d$/,"")}</b><span class="rel ${cls(n.realized)}">${fmtPct(n.realizedCost>0?n.realized/n.realizedCost:0)}</span></div>
   </section>
   <section class="sec">
     <div class="sec-h"><h2>Positions</h2><span>${n.positions.length} open${shownClosed.length?` · ${shownClosed.length} closed`:""} · bar = stop loss → take profit</span></div>
