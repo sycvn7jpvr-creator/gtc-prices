@@ -926,7 +926,7 @@ function renderChart(C,R,anim){
   const benchAll=benchSeries(R), bench=(S.showBench||anim)?benchAll:[];
   const tg=$("#bmT"); if(tg){ tg.checked=S.showBench; tg.onchange=()=>toggleBench(tg.checked); /* chart line off by default every time the site opens */ }
   $("#legend").classList.toggle("dim",!(bench.length>1));
-  const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=!BN?"WLS Index":BN.src==="tradingview"?"WLS Index · TradingView":"WLS proxy: MSCI ACWI";
+  const BN=S.market.latest&&S.market.latest.bench; $("#bmName").textContent=BN?"WLS proxy: MSCI ACWI":"WLS Index";
   if(heroState){ heroState.bench=benchAll; heroState.pts=R.pts; paintHero(); }
   const dk=S.range; const drawIn=!anim && dk!==lastDrawKey; lastDrawKey=dk;
   chartRangeNow=lineChart(area,R.pts,R.base,{drawIn,bench,range:anim&&anim.range,benchOpacity:anim?anim.op:1,pctAxis:S.showBench,aria:"Portfolio value",onScrub:p=>paintHero(p.v,p.label,p.x),onLeave:()=>paintHero(),
