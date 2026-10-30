@@ -13,7 +13,12 @@
   "shares": null,
   "side": "BUY",
   "ticker": "CMBT BB",
-  "usd": 100000
+  "usd": 100000,
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.01352,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "JPY",
@@ -29,7 +34,12 @@
   "shares": null,
   "side": "BUY",
   "ticker": "9147 JT",
-  "usd": 100000
+  "usd": 100000,
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.01352,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "TWD",
@@ -61,7 +71,12 @@
   "shares": null,
   "side": "BUY",
   "ticker": "OERL SE",
-  "usd": 100000
+  "usd": 100000,
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.01352,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "EUR",
@@ -131,7 +146,12 @@
   "shares": null,
   "side": "BUY",
   "ticker": "LIND UR",
-  "usd": 100000
+  "usd": 100000,
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.02269,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "JPY",
@@ -166,7 +186,12 @@
   "shares": null,
   "side": "BUY",
   "ticker": "VAC UN",
-  "usd": 100000
+  "usd": 100000,
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.02267,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "USD",
@@ -224,7 +249,12 @@
   "estDate": "2026-10-23",
   "estFx": 1.0,
   "fillTs": 1792762200,
-  "fillDate": "2026-10-23"
+  "fillDate": "2026-10-23",
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.004631,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "USD",
@@ -245,7 +275,12 @@
   "estDate": "2026-10-23",
   "estFx": 1.0,
   "fillTs": 1792762200,
-  "fillDate": "2026-10-23"
+  "fillDate": "2026-10-23",
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.004621,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "CHF",
@@ -266,6 +301,11 @@
   "estDate": "2026-10-23",
   "estFx": 1.2151702642440796,
   "fillTs": 1792738800,
-  "fillDate": "2026-10-23"
+  "fillDate": "2026-10-23",
+  "relAnchor": {
+   "ts": 1793370420,
+   "b": -0.004631,
+   "src": "TMSG Trade Ideas 30 Oct 15:27 (P&L - Rel P&L)"
+  }
  }
 ]

@@ -514,17 +514,30 @@ function relativePl(C){
   if(rows.length<2) return null;
   const bAt=d=>{ let v=null; for(const r of rows){ if(r[0]<=d) v=r[2]; else break; } return v; };
   const bNow=L&&L.p>0?L.p:rows[rows.length-1][2];
+  /* benchmark level at a moment: 5-min / hourly points first, else that day's close */
+  const bAtTs=ts=>{ for(const k of ["i","w"]){ const ser=(L&&L[k])||[]; if(ser.length&&ser[0][0]<=ts){ let v=null; for(const q of ser){ if(q[0]<=ts) v=q[1]; else break; } if(v>0) return v; } }
+    return bAt(new Date(ts*1000).toISOString().slice(0,10)); };
   const open={}; for(const p of C.now.positions) open[p.ticker]=p;
   let rel=0, any=false;
   for(const t of effTrades()){
     if(t.side!=="BUY"||!(t.price>0)) continue;
     const fx=t.ccy==="USD"?1:t.fx, usd=+t.usd||0, sh=usd/(t.price*fx), e=S.exits&&S.exits[t.ticker], p=open[t.ticker];
+    if(e&&e.rel!=null){ rel+=+e.rel; any=true; continue; }  /* closed and TMSG's own Rel P&L is known: use it exactly */
     let val, b1;
     if(e&&e.px>0){ val=sh*e.px*(t.ccy==="USD"?1:(e.fx||fx)); b1=bAt(e.date); }
     else if(p&&p.px>0){ val=sh*p.px*(t.ccy==="USD"?1:(p.fxNow||fx)); b1=bNow; }
     else continue;
-    const b0=bAt(t.effDate||t.date); if(!(b0>0&&b1>0)) continue;
-    rel+=(val-usd)-usd*(b1/b0-1); any=true;
+    let bret;
+    if(t.relAnchor&&!(e&&e.px>0)){
+      /* TMSG's own WLS change for this position at a known moment (from a Trade Ideas screenshot),
+         carried forward with the stand-in's move since then */
+      const bA=bAtTs(t.relAnchor.ts); if(!(bA>0&&b1>0)) continue;
+      bret=(1+t.relAnchor.b)*(b1/bA)-1;
+    } else {
+      const b0=bAt(t.effDate||t.date); if(!(b0>0&&b1>0)) continue;
+      bret=b1/b0-1;
+    }
+    rel+=(val-usd)-usd*bret; any=true;
   }
   return any?rel:null;
 }
