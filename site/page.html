@@ -358,9 +358,62 @@ label.f .hint{font-weight:400;font-size:12px}
   @keyframes toastIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
 }
 @media (prefers-reduced-motion:reduce){ .slide-ind{transition:none} }
+
+/* ---------- laptop: dashboard layout (phones keep the single column) ---------- */
+.pane-l,.pane-r{display:contents}
+.appbar,.kpis{display:none}
+@media (min-width:1100px){
+  body{padding-left:32px;padding-right:32px}
+  .wrap{max-width:1400px;display:grid;grid-template-columns:minmax(0,1fr) minmax(460px,540px);gap:20px 28px;align-items:start;padding-top:0}
+  /* app bar */
+  .appbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:18px 2px 14px;border-bottom:1px solid var(--line)}
+  .ab-brand{display:flex;align-items:center;gap:12px}
+  .ab-mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--ink);color:var(--bg);font-family:var(--f-display);font-weight:700;font-size:17px}
+  .ab-brand b{display:block;font-family:var(--f-display);font-size:17px;letter-spacing:-.01em}
+  .ab-brand div span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
+  .ab-right{display:flex;align-items:center;gap:26px}
+  .ab-live{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);font-weight:500;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+  .ab-live i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .ab-live i.on{background:var(--up);box-shadow:0 0 0 0 color-mix(in srgb,var(--up) 50%,transparent);animation:abPulse 2.4s ease-out infinite}
+  .ab-live i.stale{background:var(--accent)}
+  @keyframes abPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--up) 45%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .ab-clock{font-size:13px;color:var(--muted);text-align:right}
+  .ab-clock b{color:var(--ink);font-weight:600}
+  .ab-clock .track{width:150px;margin-top:6px}
+  .top .clock{display:none}
+  /* KPI strip */
+  .kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .kpi{padding:14px 18px 15px;min-width:0;border-left:1px solid var(--line)}
+  .kpi:first-child{border-left:0}
+  .kpi small{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .kpi b{display:block;font-size:22px;font-weight:600;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+  .kpi span{display:block;font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view>.stats{display:none}  /* the strip above shows the same numbers */
+  /* panes */
+  .pane-l{display:flex;flex-direction:column;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 28px 20px}
+  .pane-r{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .top{padding-top:0}
+  .big{font-size:60px}
+  .hero .chg{font-size:16px}
+  .chart svg{height:320px}
+  #chartArea .chart-empty{height:320px}
+  .tabs,.tabs.has-ind{position:sticky;top:0;padding-top:10px;z-index:6}
+  .list{border:1px solid var(--line);box-shadow:none}
+  .sec-h h2{font-size:13px;letter-spacing:.07em;text-transform:uppercase;font-family:var(--f-body);font-weight:700;color:var(--muted)}
+}
+@media (min-width:1100px) and (min-height:860px){ .pane-l{position:sticky;top:70px} }
 </style>
 
 <div class="wrap">
+  <div class="appbar" aria-hidden="true">
+    <div class="ab-brand"><span class="ab-mark">G</span><div><b>GTC Mid-Cap Book</b><span>Bloomberg Global Trading Challenge · Europe Group A</span></div></div>
+    <div class="ab-right">
+      <span class="ab-live"><i id="abDot"></i><span id="abFresh">Loading…</span></span>
+      <div class="ab-clock"><span><span id="abClockLbl">Challenge</span> · <b id="abClockVal">–</b></span><div class="track"><i id="abClockBar" style="width:0%"></i></div></div>
+    </div>
+  </div>
+  <section class="kpis num" id="kpis"></section>
+  <div class="pane-l">
   <header class="top">
     <section class="hero" aria-live="polite">
       <div class="eyebrow">Portfolio value</div>
@@ -391,7 +444,9 @@ label.f .hint{font-weight:400;font-size:12px}
   </section>
 
   <div id="alerts"></div>
+  </div>
 
+  <div class="pane-r">
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="overview" aria-selected="true">Positions</button>
     <button role="tab" data-tab="news" aria-selected="false">News</button>
@@ -401,6 +456,7 @@ label.f .hint{font-weight:400;font-size:12px}
   <div id="notice"></div>
   <main id="view"></main>
   <p class="foot" id="foot">Values in USD. Local prices are converted at the FX rate you enter.</p>
+  </div>
 </div>
 
 <button class="fab" id="fab" hidden>+ Trade</button>
@@ -421,6 +477,7 @@ try{ const t = localStorage.getItem("gtc.tab"); if(t) S.tab=t; /* the portfolio 
 
 /* ---------- motion ---------- */
 const RM=()=>!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+const WIDE=()=>!!(window.matchMedia&&window.matchMedia("(min-width:1100px)").matches);  /* laptop dashboard layout */
 function makeSmoother(draw){
   let cur=null, tgt=null, meta=null, raf=0;
   const tick=()=>{ raf=0; if(cur==null) return; const d=tgt-cur;
@@ -671,6 +728,7 @@ function renderClock(){
   else { lbl="Ends "+fmtDate(s.end); val= left===0?"Last day": left+" day"+(left===1?"":"s")+" left"; }
   $("#clockLbl").textContent=lbl; $("#clockVal").textContent=val;
   $("#clockBar").style.width = Math.max(0,Math.min(100,(c-a)/total*100))+"%";
+  if($("#abClockVal")){ $("#abClockLbl").textContent=lbl; $("#abClockVal").textContent=val; $("#abClockBar").style.width=$("#clockBar").style.width; }
 }
 
 function valueAt(cv,d){ let r=null; for(const p of cv){ if(p.date<=d) r=p.v; } return r; }
@@ -683,7 +741,7 @@ function calcRange(vals){
 }
 function lineChart(box,pts,base,opts){
   opts=opts||{};
-  const W=Math.max(260,box.clientWidth||400), H=opts.h||190, pT=14, pB=14;
+  const W=Math.max(260,box.clientWidth||400), H=opts.h||(WIDE()?320:190), pT=14, pB=14;
   const marks=opts.markers||[], bench=opts.bench||[], hl=opts.levels||[];
   const rg=opts.range||calcRange(pts.map(p=>p.v).concat(bench.map(p=>p.v),marks.map(m=>m.v),[base]));
   const lo=rg.lo, hi=rg.hi;
@@ -910,6 +968,9 @@ function renderHero(C,R){
   const up=S.market.latest&&S.market.latest.updated;
   $("#fresh").textContent = up ? (()=>{ const m=Math.round((Date.now()-Date.parse(up))/60000);
     return "Prices "+(m<90?m+" min ago":"from "+new Date(up).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"}))+" · Yahoo Finance, ~15 min delayed"; })() : "";
+  if($("#abFresh")){ const m=up?Math.round((Date.now()-Date.parse(up))/60000):null;
+    $("#abFresh").textContent = m==null?"No prices yet":m<90?`Live · prices ${m} min ago`:"Prices from "+new Date(up).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"});
+    $("#abDot").className = m!=null&&m<=15?"on":"stale"; }
 }
 
 /* ---------- benchmark (WLS proxy) ---------- */
@@ -1304,6 +1365,22 @@ function renderPrices(C){
 
 /* ---------- top-level render ---------- */
 let lastC=null;
+/* laptop KPI strip: always visible, whatever tab is open */
+function renderKpis(C){
+  const el=$("#kpis"); if(!el||!WIDE()) return;
+  const n=C.now, start=S.settings.startCapital||1000000, tot=n.total||0, pl=tot-start;
+  const open=n.positions.reduce((s,p)=>s+p.unreal,0), openCost=n.positions.reduce((s,p)=>s+(p.cost||0),0);
+  const rel=relativePl(C), inv=tot-n.cash, nClosed=(n.closed||[]).length;
+  const money=v=>fmtUsdS(v).replace(/\.\d\d$/,"");
+  const cell=(lbl,val,cl,sub)=>`<div class="kpi"><small>${lbl}</small><b class="${cl||""}">${val}</b><span>${sub}</span></div>`;
+  setHTML(el,
+    cell("Total P&amp;L",money(pl),cls(pl),`${fmtPct(pl/start)} since ${fmtDate(S.settings.start)}`)+
+    cell("Relative P&amp;L",rel==null?"–":money(rel),rel==null?"":cls(rel),"vs WLS Index")+
+    cell("Open P&amp;L",money(open),cls(open),`${fmtPct(openCost>0?open/openCost:0)} on ${n.positions.length} open`)+
+    cell("Realized",money(n.realized),cls(n.realized),`${nClosed} closed position${nClosed===1?"":"s"}`)+
+    cell("Invested",usd0.format(inv),"",`${n2.format(tot?inv/tot*100:0)}% of book`)+
+    cell("Cash",usd0.format(n.cash),"",`${n2.format(tot?n.cash/tot*100:0)}% of book`));
+}
 function render(){
   renderClock();
   if(S.dbState==="retry"){
@@ -1315,7 +1392,7 @@ function render(){
   }
   if(!(S.got.trades&&S.got.prices)){ return; }
   const C=compute(); lastC=C;
-  const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderAlerts(C); renderNotice(C);
+  const R=rangePoints(C); renderHero(C,R); renderChart(C,R); renderAlerts(C); renderNotice(C); renderKpis(C);
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===S.tab)));
   if(S.tab==="prices") S.tab="overview";
   if(S.tab==="trades") renderTrades(C); else if(S.tab==="news") renderNews(C); else renderOverview(C);
