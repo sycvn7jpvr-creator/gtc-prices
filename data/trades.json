@@ -242,7 +242,7 @@
   "price": 109.51,
   "shares": null,
   "side": "BUY",
-  "ticker": "HNGE US",
+  "ticker": "HNGE UN",
   "usd": 91988,
   "estPrice": 109.690002,
   "estTs": 1792762200,
@@ -355,7 +355,7 @@
   "price": 117.93,
   "shares": null,
   "side": "BUY",
-  "ticker": "HNGE UN",
+  "ticker": "HNGE US",
   "usd": 98476,
   "atr20": 2.1153
  },
