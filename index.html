@@ -126,6 +126,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .al-list{display:flex;flex-direction:column;gap:6px}
 .al-bar{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:12px;padding:9px 12px;text-align:left;font-size:14px;color:var(--alert-fg);background:var(--alert-bg);box-shadow:0 3px 10px rgba(217,45,32,.22)}
 .al-bar.tp{background:var(--up);color:#fff;box-shadow:0 3px 10px rgba(14,138,85,.22)}
+.al-bar.earn{background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--ink);box-shadow:none;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+.al-bar.earn .al-i{background:var(--accent);color:#fff}
+.al-bar.earn .al-n b{font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis}
+.al-bar.earn .al-n small{display:block;font-size:12.5px;color:var(--muted);font-weight:500;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
+.pill.earn{white-space:nowrap;background:color-mix(in srgb,var(--accent) 16%,transparent);color:color-mix(in srgb,var(--accent) 75%,var(--ink));font-weight:700}
 .al-bar .al-i{width:20px;height:20px;font-size:13px}
 .al-bar.tp .al-i{background:#fff;color:var(--up)}
 .al-bar .al-n{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -392,6 +397,8 @@ label.f .hint{font-weight:400;font-size:12px}
   /* panes */
   .pane-l{display:flex;flex-direction:column;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 28px 20px}
   .pane-r{display:flex;flex-direction:column;gap:18px;min-width:0}
+  #alerts{order:-1}  /* notices first, above the value */
+  #alerts .al-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
   .top{padding-top:0}
   .big{font-size:60px}
   .hero .chg{font-size:16px}
@@ -1169,13 +1176,17 @@ function renderAlerts(C){
   const tab=document.querySelector('.tabs [data-tab="overview"]');
   if(tab){ tab.classList.toggle("alert",hits.length>0); tab.innerHTML=hits.length?'Positions <b class="bang" aria-label="alert">!</b>':"Positions"; }
   const box=$("#alerts"); if(!box) return;
-  if(!hits.length){ box.innerHTML=""; return; }
+  const soon=earningsSoon(C); S.earnSoon=Object.fromEntries(soon.map(x=>[x.p.ticker,x]));
+  const earnBars=soon.map(x=>`<button type="button" class="al-bar earn" data-hit="${esc(x.p.ticker)}" title="Earnings release${x.time?" at "+x.time+" German time":", time not published yet"}">
+      <span class="al-i" aria-hidden="true">E</span><span class="al-n"><b>${esc(x.p.name||x.p.ticker)}</b><small class="num">Earnings ${x.when}${x.days===2?" ("+x.wd+")":""} · ${x.time?(x.past?"was at ":"")+x.time+" German time":"time not published yet"}</small></span>
+      <span class="al-go" aria-hidden="true">›</span></button>`).join("");
+  if(!hits.length){ box.innerHTML=earnBars?`<section class="al-list" aria-label="Earnings coming up">${earnBars}</section>`:""; box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C)); return; }
   const nSL=hits.filter(h=>h.kind==="SL").length, nTP=hits.length-nSL;
   const head=[nSL?`Stop loss hit for ${nSL} stock${nSL>1?"s":""}`:"",nTP?`Take profit hit for ${nTP} stock${nTP>1?"s":""}`:""].filter(Boolean).join(" · ");
   /* compact: one slim bar per stock (tap opens it); clears 24 h after the exit */
   box.innerHTML=`<section class="al-list" role="alert" aria-label="${esc(head)}">${hits.map(h=>`<button type="button" class="al-bar ${h.kind==="SL"?"sl":"tp"}" data-hit="${esc(h.p.ticker)}" title="TMSG closed the position automatically. Clears 24 h after the exit.">
       <span class="al-i" aria-hidden="true">!</span><span class="al-n"><b>${h.kind==="SL"?"Stop loss":"Take profit"}</b> · ${esc(h.p.name||h.p.ticker)}</span>
-      <span class="al-d num">${ago(h.ts)}</span><span class="al-go" aria-hidden="true">›</span></button>`).join("")}</section>`;
+      <span class="al-d num">${ago(h.ts)}</span><span class="al-go" aria-hidden="true">›</span></button>`).join("")}${earnBars}</section>`;
   box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C));
 }
 
@@ -1259,7 +1270,7 @@ function renderOverview(C){
     const asOf = !L && p.pxDate && p.pxDate!==C.td ? fmtDate(p.pxDate):"";
     return `<button class="row" data-pos="${esc(p.ticker)}">
       <div style="min-width:0"><div class="r-name">${esc(p.name||p.ticker)}</div>
-        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}</div></div>
+        <div class="r-sub"><span class="tk">${esc(p.ticker)}</span>${pend?'<span class="pill wait">FILL PENDING</span>':`<span class="num">${p.px?`${nPx(p.px)} ${esc(p.ccy)}`:`${nSh(p.shares)} sh`}${asOf?` · ${asOf}`:""}</span>${day!=null&&(L.d===C.td||!X)?`<span class="num ${cls(day)}">${fmtPct(day)} ${dayLbl}</span>`:""}${ext}`}${w>0.2?'<span class="pill cap">&gt;20%</span>':""}${(S.earnSoon||{})[p.ticker]?`<span class="pill earn" title="Earnings release, German time">Earnings ${esc(S.earnSoon[p.ticker].label)}</span>`:""}</div></div>
       <div><div class="r-val num">${usd0.format(p.value)}</div>
         <div class="r-pl num ${pend?"flat":cls(p.unreal)}">${pend?"at cost":`${fmtUsdS(p.unreal).replace(/\.\d\d$/,"")} · ${fmtPct(r)}`}</div></div>
       ${miniGauge(p)}${watchHTML(stopWatch(p))}
@@ -1480,6 +1491,22 @@ function stockSeries(tk){
 /* ---------- upcoming company events (earnings, dividends) ---------- */
 const berlinDate = ms => new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Berlin",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(ms));
 const dnum = d => Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))/86400000;
+/* earnings within the next 2 days (today, tomorrow, in 2 days) for open positions; time in German time when it is known */
+function earningsSoon(C){
+  if(!S.events||!C) return [];
+  const td=berlinDate(Date.now()), out=[];
+  for(const p of C.now.positions){
+    const e=eventsFor(p.ticker).find(x=>x.type==="earnings"); if(!e) continue;
+    const days=dnum(e.date)-dnum(td); if(days<0||days>2) continue;
+    const code=p.ticker.split(" ").pop(), M=MARKETS.find(m=>m.codes.includes(code));
+    const known=!!(e.timeKnown&&e.ts&&M&&M.name==="New York");  /* Yahoo's release times are reliable for US stocks only */
+    const wd=new Date(e.date+"T12:00:00Z").toLocaleDateString("en-GB",{weekday:"short",timeZone:"UTC"});
+    const when=days===0?"today":days===1?"tomorrow":"in 2 days";
+    const time=known?berlinHM(e.ts*1000):null, past=known&&e.ts*1000<Date.now();
+    out.push({p,e,days,when,wd,time,past,label:`${days===2?wd:when}${time?" "+time:""}`});
+  }
+  return out.sort((a,b)=>a.days-b.days||((a.e.ts||0)-(b.e.ts||0)));
+}
 function eventsFor(tk){ const t=berlinDate(Date.now()); return (((S.events&&S.events.items)||{})[tk]||[]).filter(e=>e.date>=t).sort((a,b)=>a.date<b.date?-1:1); }
 function eventRow(e,tk){
   const code=tk.split(" ").pop(), M=MARKETS.find(m=>m.codes.includes(code));
