@@ -135,6 +135,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .eb-n{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .eb-w{flex:none;color:var(--muted);font-size:12.5px;white-space:nowrap}
 .eb-go{flex:none;color:var(--muted);font-size:15px;line-height:1}
+.r-sub.lvl-wrong{color:var(--down);font-weight:600}
 .pill.earn{white-space:nowrap;background:color-mix(in srgb,var(--accent) 16%,transparent);color:color-mix(in srgb,var(--accent) 75%,var(--ink));font-weight:700}
 .al-bar .al-i{width:20px;height:20px;font-size:13px}
 .al-bar.tp .al-i{background:#fff;color:var(--up)}
@@ -1327,7 +1328,8 @@ function renderTrades(C){
     return `<button class="row" data-trade="${esc(t.id)}">
       <div style="min-width:0"><div class="r-name"><span class="pill ${t.side==="BUY"?"buy":"sell"}">${t.side}</span> ${esc(t.name||t.ticker)}</div>
       <div class="r-sub"><span class="num">${fmtDate(t.date)}</span><span class="tk">${esc(t.ticker)}</span><span class="num">${sub}</span>${who}</div>
-      ${t.note?`<div class="r-sub">${esc(t.note)}</div>`:""}</div>
+      ${t.note?`<div class="r-sub">${esc(t.note)}</div>`:""}
+      ${t.levelIssue?`<div class="r-sub lvl-wrong">⚠ ${esc(t.levelIssue)}</div>`:""}</div>
       <div>${right}</div></button>`;
   }).join("");
   $("#view").innerHTML=`<section class="sec">

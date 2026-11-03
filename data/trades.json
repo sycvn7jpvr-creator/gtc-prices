@@ -357,7 +357,8 @@
   "side": "BUY",
   "ticker": "HNGE US",
   "usd": 98476,
-  "atr20": 2.1153
+  "atr20": 4.4594,
+  "levelIssue": "SL/TP set wrong: ATR read as 2.1153 instead of 4.4594 and TP calculated as Entry + 2×ATR instead of Entry + 2R. Active in TMSG: SL 113.70 / TP 122.16. Correct by the rule: SL 109.01 / TP 135.77. The stop at 113.70 was hit; with the correct SL of 109.01 it would not have been (low ~113.20)."
  },
  {
   "ccy": "USD",
