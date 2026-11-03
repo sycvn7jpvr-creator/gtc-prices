@@ -17,6 +17,7 @@ from fetch_prices import to_yahoo
 ROOT = Path(__file__).parent
 OUT = ROOT / "data" / "events.json"
 HORIZON_DAYS = 120
+RECENT_DAYS = 4  # reported earnings kept this many days for the website
 TODAY = dt.datetime.now(dt.timezone.utc).date()
 
 
@@ -82,8 +83,21 @@ def events_for(sym, dbg):
 
     # ---- earnings: exact time from the earnings table when Yahoo has it, else the calendar day(s)
     e_date, e_ts, e_time, e_est, e_eps, e_range = None, None, False, None, None, None
+    recent = []
     if ed is not None and len(ed):
-        fut = [(i, r) for i, r in ed.iterrows() if as_date(i) and as_date(i) >= TODAY - dt.timedelta(days=1)]
+        # already reported in the last few days: keep the actual numbers for the website (beat / miss + reaction)
+        for i, r in ed.iterrows():
+            d = as_date(i)
+            rep_eps = num(r.get("Reported EPS"))
+            if d and TODAY - dt.timedelta(days=RECENT_DAYS) <= d <= TODAY and rep_eps is not None:
+                local = i.to_pydatetime()
+                recent.append({"type": "earnings", "date": d.isoformat(), "ts": int(i.timestamp()),
+                               "timeKnown": bool(local.hour or local.minute), "estimate": False, "past": True,
+                               "eps": num(r.get("EPS Estimate")), "reported": rep_eps,
+                               "surprise": num(r.get("Surprise(%)")), "ccy": ccy})
+        # upcoming = not reported yet
+        fut = [(i, r) for i, r in ed.iterrows() if as_date(i) and as_date(i) >= TODAY - dt.timedelta(days=1)
+               and num(r.get("Reported EPS")) is None]
         dbg["earnings_dates_future"] = [str(i) for i, _ in fut][:4]
         if fut:
             i, r = sorted(fut, key=lambda x: x[0])[0]
@@ -117,7 +131,8 @@ def events_for(sym, dbg):
                 e_est = True
     if e_eps is None:
         e_eps = num(cal.get("Earnings Average"))
-    if in_window(e_date):
+    reported_days = {x["date"] for x in recent}
+    if in_window(e_date) and e_date.isoformat() not in reported_days:
         out.append({"type": "earnings", "date": e_date.isoformat(), "ts": e_ts, "timeKnown": e_time,
                     "estimate": bool(e_est), "range": e_range, "eps": e_eps, "ccy": ccy,
                     "rev": num(cal.get("Revenue Average"))})
@@ -130,6 +145,7 @@ def events_for(sym, dbg):
     pay = as_date(cal.get("Dividend Date")) or as_date(info.get("dividendDate"))
     if in_window(pay) and pay >= TODAY:
         out.append({"type": "divpay", "date": pay.isoformat(), "amount": last_div, "ccy": ccy})
+    out += recent
     return sorted(out, key=lambda e: e["date"])
 
 
