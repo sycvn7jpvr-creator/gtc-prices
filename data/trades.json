@@ -389,6 +389,10 @@
   "shares": null,
   "side": "BUY",
   "ticker": "PNDORA DC",
-  "usd": 98000
+  "usd": 98000,
+  "estPrice": 839.0,
+  "estTs": 1793692800,
+  "estDate": "2026-11-03",
+  "estFx": 0.14990143477916718
  }
 ]
