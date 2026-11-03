@@ -323,7 +323,7 @@
   "side": "BUY",
   "ticker": "PLSE UR",
   "usd": 98489,
-  "atr20": 1.5083
+  "atr20": 3.0416
  },
  {
   "ccy": "USD",
@@ -340,7 +340,7 @@
   "side": "BUY",
   "ticker": "KOD UQ",
   "usd": 98442,
-  "atr20": 3.5642
+  "atr20": 6.5358
  },
  {
   "ccy": "USD",
@@ -374,25 +374,28 @@
   "side": "BUY",
   "ticker": "SYRE UW",
   "usd": 98498,
-  "atr20": 2.3954
+  "atr20": 4.4906
  },
  {
   "ccy": "DKK",
   "createdAt": "2026-11-02T22:55:00+01:00",
   "date": "2026-11-02",
   "orderTs": 1793656500,
-  "fx": 0.150025,
+  "fx": 0.149835,
   "id": "t20",
   "name": "Pandora",
-  "note": "Bought in TMSG · Next Tick · fills at the Copenhagen open · cash in ~98,000 USD planned (real figures to come)",
-  "price": null,
+  "note": "Bought in TMSG · Next Tick at the Copenhagen open · 783 shares, total cash in 98,432 USD · ATR20 23.9123",
+  "price": 839.0,
   "shares": null,
   "side": "BUY",
   "ticker": "PNDORA DC",
-  "usd": 98000,
+  "usd": 98432,
   "estPrice": 839.0,
   "estTs": 1793692800,
   "estDate": "2026-11-03",
-  "estFx": 0.14990143477916718
+  "estFx": 0.14990143477916718,
+  "atr20": 23.9123,
+  "fillTs": 1793692800,
+  "fillDate": "2026-11-03"
  }
 ]
