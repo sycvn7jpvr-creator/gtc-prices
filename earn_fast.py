@@ -135,8 +135,9 @@ def headlines(sym, names, since):
                 ts = None
         text = " ".join(x for x in (c.get("title"), c.get("summary"), c.get("description")) if isinstance(x, str))
         src = (c.get("provider") or {}).get("displayName") or c.get("publisher") or src_default
+        url = (c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link") or ""
         if ts and ts >= since and text:
-            out.append((int(ts), text, src))
+            out.append((int(ts), text, src, url))
     try:
         for n in yf.Search(sym, news_count=25, max_results=1).news or []:
             add(n, "Yahoo")
@@ -158,7 +159,7 @@ def headlines(sym, names, since):
                 except Exception:
                     continue
                 if ts >= since:
-                    out.append((ts, (it.findtext("title") or "").strip(), (it.findtext("source") or "Google News").strip()))
+                    out.append((ts, (it.findtext("title") or "").strip(), (it.findtext("source") or "Google News").strip(), ""))
         except Exception:
             pass
     return sorted(set(out))
@@ -177,7 +178,7 @@ def fast_result(t, sym, names, ev, dbg):
     dbg["headlines"] = len(hs)
     best = {}
     name_rx = re.compile("|".join(re.escape(n) for n in names + [sym]), re.I) if names else None
-    for ts, text, src in hs:
+    for ts, text, src, url in hs:
         if name_rx and not name_rx.search(text):
             continue  # headline about another company
         p = parse(text)
@@ -188,6 +189,7 @@ def fast_result(t, sym, names, ev, dbg):
         elif "released" not in best and PR.search(text) and not OPINION.search(text):
             best.setdefault("released", ts)
             best.setdefault("pr", text[:160])
+            best.setdefault("pr_url", url)
     if "rank" in best:
         r = {k: best[k] for k in ("reported", "eps", "diff", "surprise", "dir") if k in best}
         if "diff" in r and ev.get("eps") is not None:  # actual = consensus + difference
@@ -198,5 +200,50 @@ def fast_result(t, sym, names, ev, dbg):
         return r
     if "released" in best:
         dbg["press_release"] = best["pr"]
-        return {"released": best["released"]}
+        out = {"released": best["released"]}
+        if best.get("pr_url"):  # read EPS from the press release itself
+            got = press_release_eps(best["pr_url"], dbg)
+            if got:
+                a, kind = got
+                out.update(reported=a, eps=ev.get("eps"), src="press release" + ("" if kind == "adjusted" else ", GAAP"))
+        return out
     return None
+
+
+EPS_LINE = re.compile(
+    r"(?P<adj>adjusted\s+|non-gaap\s+)?(?:diluted\s+)?(?:net\s+)?(?:earnings|income|loss|\(loss\)|earnings\s*\(loss\)|income\s*\(loss\)|\(loss\)\s*income)"
+    r"\s+per\s+(?:diluted\s+)?(?:common\s+)?share(?:\s*\(\s*(?:diluted|eps)\s*\))?(?:,?\s*diluted)?"
+    r"(?:\s+(?:was|were|of|totaled|amounted to|came in at))?\s*(?P<v>\(?-?\$\s?\(?\d+\.\d+\)?)", re.I)
+EPS_SHORT = re.compile(r"(?P<adj>adjusted\s+|non-gaap\s+)?(?:diluted\s+)?EPS(?:\s+(?:was|were|of))?\s*(?P<v>\(?-?\$\s?\(?\d+\.\d+\)?)", re.I)
+
+
+def press_release_eps(url, dbg):
+    """(eps, 'adjusted'|'gaap') from the first EPS figure in the release text (its highlights = this quarter)"""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"})
+        html = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "ignore")
+    except Exception as e:
+        dbg["pr_fetch"] = f"{type(e).__name__}: {e}"[:120]
+        return None
+    text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html, flags=re.S | re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"&nbsp;|&#160;", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    dbg["pr_chars"] = len(text)
+    hits = []
+    for rx in (EPS_LINE, EPS_SHORT):
+        for m in rx.finditer(text[:20000]):
+            loss = re.search(r"loss", m.group(0), re.I) and not re.search(r"earnings|income", m.group(0), re.I)
+            v = val(m.group("v").replace(" ", ""))
+            if v is None or abs(v) > 500:
+                continue
+            if loss and v > 0:
+                v = -v
+            hits.append((m.start(), bool(m.group("adj")), v, m.group(0)[:90]))
+    if not hits:
+        return None
+    hits.sort()
+    adj = [h for h in hits if h[1]]
+    pick = adj[0] if adj else hits[0]
+    dbg["pr_eps"] = [pick[3], pick[2]]
+    return pick[2], "adjusted" if pick[1] else "gaap"
