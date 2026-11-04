@@ -230,6 +230,9 @@ def press_release_eps(url, dbg):
     text = re.sub(r"&nbsp;|&#160;", " ", text)
     text = re.sub(r"\s+", " ", text)
     dbg["pr_chars"] = len(text)
+    dbg["pr_url"] = url[:160]
+    k = text.lower().find("per share")
+    dbg["pr_snip"] = text[max(0, k - 250):k + 150] if k >= 0 else text[:300] + " … " + text[-300:]
     hits = []
     for rx in (EPS_LINE, EPS_SHORT):
         for m in rx.finditer(text[:20000]):
