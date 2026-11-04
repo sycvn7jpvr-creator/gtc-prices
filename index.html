@@ -128,7 +128,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .al-bar.tp{background:var(--up);color:#fff;box-shadow:0 3px 10px rgba(14,138,85,.22)}
 .earn-box{border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-radius:12px;padding:6px 6px 4px}
 .eb-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--ink);padding:2px 6px 4px}
-.eb-h span:last-child{margin-left:auto;font-weight:500;color:var(--muted)}
+.eb-h{width:100%;border:0;background:none;font:inherit;font-size:12px;font-weight:700;text-align:left;cursor:pointer;border-radius:8px}
+.eb-h:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.eb-h span:nth-last-child(2){margin-left:auto;font-weight:500;color:var(--muted)}
+.eb-chev{color:var(--muted);font-size:11px;width:12px;text-align:center}
+.eb-cnt{background:var(--accent);color:#fff;border-radius:9px;padding:0 6px;font-size:10.5px;line-height:16px}
+.earn-box.shut{padding-bottom:6px}
+.earn-box.shut .eb-h{padding-bottom:2px}
 .eb-i{width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:800}
 .eb-row{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;padding:5px 6px;border-radius:8px;font-size:13px;text-align:left;color:var(--ink)}
 @media (hover:hover){.eb-row:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}}
@@ -1199,8 +1205,9 @@ function renderAlerts(C){
       <span class="eb-n">${esc(x.p.name||x.p.ticker)}<small class="eb-res">Reported ${x.when}${x.time?" "+x.time:""} · ${res}${rea}</small></span><span class="eb-go" aria-hidden="true">›</span></button>`;
   };
   const anyDone=soon.some(x=>x.past), anyNext=soon.some(x=>!x.past);
-  const earnBars=soon.length?`<div class="earn-box"><div class="eb-h"><span class="eb-i" aria-hidden="true">E</span>${anyDone&&!anyNext?"Earnings results":anyDone?"Earnings":"Earnings coming up"}<span>German time</span></div>${soon.map(ebRow).join("")}</div>`:"";
-  if(!hits.length){ box.innerHTML=earnBars?`<section class="al-list" aria-label="Earnings coming up">${earnBars}</section>`:""; box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C)); return; }
+  const ebShut=!!S.earnShut;
+  const earnBars=soon.length?`<div class="earn-box${ebShut?" shut":""}"><button type="button" class="eb-h" data-earn-toggle aria-expanded="${!ebShut}"><span class="eb-i" aria-hidden="true">E</span>${anyDone&&!anyNext?"Earnings results":anyDone?"Earnings":"Earnings coming up"}${ebShut?`<b class="eb-cnt">${soon.length}</b>`:""}<span>${ebShut?"show":"German time"}</span><span class="eb-chev" aria-hidden="true">${ebShut?"▾":"▴"}</span></button>${ebShut?"":soon.map(ebRow).join("")}</div>`:"";
+  if(!hits.length){ box.innerHTML=earnBars?`<section class="al-list" aria-label="Earnings coming up">${earnBars}</section>`:""; box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C)); ebToggle(box,C); return; }
   const nSL=hits.filter(h=>h.kind==="SL").length, nTP=hits.length-nSL;
   const head=[nSL?`Stop loss hit for ${nSL} stock${nSL>1?"s":""}`:"",nTP?`Take profit hit for ${nTP} stock${nTP>1?"s":""}`:""].filter(Boolean).join(" · ");
   /* compact: one slim bar per stock (tap opens it); clears 24 h after the exit */
@@ -1208,6 +1215,7 @@ function renderAlerts(C){
       <span class="al-i" aria-hidden="true">!</span><span class="al-n"><b>${h.kind==="SL"?"Stop loss":"Take profit"}</b> · ${esc(h.p.name||h.p.ticker)}</span>
       <span class="al-d num">${ago(h.ts)}</span><span class="al-go" aria-hidden="true">›</span></button>`).join("")}${earnBars}</section>`;
   box.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>openPosition(b.dataset.hit,C));
+  ebToggle(box,C);
 }
 
 /* ---------- views ---------- */
@@ -1548,6 +1556,7 @@ function reactionInfo(r){
   if(n<=-0.02) return {word:h>=0.03?`reversed: first ${pctS(h)}, now down`:"bad",cls:"down"};
   return {word:h>=0.03?`mixed: first ${pctS(h)}, gave it back`:l<=-0.03?`mixed: first ${pctS(l)}, recovered`:"muted",cls:"flat"};
 }
+function ebToggle(box,C){ const t=box.querySelector("[data-earn-toggle]"); if(t) t.onclick=()=>{ S.earnShut=!S.earnShut; renderAlerts(C); }; }
 function earningsSoon(C){
   if(!S.events||!C) return [];
   const td=berlinDate(Date.now()), out=[];
