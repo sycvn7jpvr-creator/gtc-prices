@@ -190,7 +190,7 @@ def fast_result(t, sym, names, ev, dbg):
             best.setdefault("released", ts)
             best.setdefault("pr", text[:160])
             best.setdefault("pr_url", url)
-    sec = edgar_release(sym, since, dbg) if "." not in sym else None  # also checked when a headline has it (keeps it tested)
+    sec = edgar_release(sym, since, dbg) if SEC_ON and "." not in sym else None
     if "rank" in best:
         r = {k: best[k] for k in ("reported", "eps", "diff", "surprise", "dir") if k in best}
         if "diff" in r and ev.get("eps") is not None:  # actual = consensus + difference
@@ -223,7 +223,8 @@ EPS_LINE = re.compile(
 EPS_SHORT = re.compile(r"(?P<adj>adjusted\s+|non-gaap\s+)?(?:diluted\s+)?EPS(?:\s+(?:was|were|of))?\s*(?P<v>\(?-?\$\s?\(?\d+\.\d+\)?)", re.I)
 
 
-SEC_UA = "gtc-prices tracker sycvn7jpvr-creator@users.noreply.github.com"
+SEC_UA = "gtc-prices tracker github.com/sycvn7jpvr-creator/gtc-prices"
+SEC_ON = False  # sec.gov answers 403 to GitHub-hosted runners (tested 4 Nov 2026)
 _CIK = {}
 
 
