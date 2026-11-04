@@ -198,10 +198,16 @@ def fast_result(t, sym, names, ev, dbg):
         r["src"] = best["src"]
         dbg["fast_headline"] = best["headline"]
         return r
+    # US companies file the press release with the SEC (8-K, item 2.02) within minutes: read EPS from there
+    sec = edgar_release(sym, since, dbg) if "." not in sym else None
+    if sec:
+        best.setdefault("released", sec[0])
+        best.setdefault("pr", "SEC 8-K")
     if "released" in best:
         dbg["press_release"] = best["pr"]
         out = {"released": best["released"]}
-        if best.get("pr_url"):  # read EPS from the press release itself
+        got = press_release_eps(sec[1], dbg) if sec else None
+        if not got and best.get("pr_url"):  # read EPS from the press release page
             got = press_release_eps(best["pr_url"], dbg)
             if got:
                 a, kind = got
@@ -217,11 +223,52 @@ EPS_LINE = re.compile(
 EPS_SHORT = re.compile(r"(?P<adj>adjusted\s+|non-gaap\s+)?(?:diluted\s+)?EPS(?:\s+(?:was|were|of))?\s*(?P<v>\(?-?\$\s?\(?\d+\.\d+\)?)", re.I)
 
 
+SEC_UA = "gtc-prices tracker github.com/sycvn7jpvr-creator/gtc-prices"
+_CIK = {}
+
+
+def _get(url, ua=SEC_UA, timeout=20):
+    req = urllib.request.Request(url, headers={"User-Agent": ua, "Accept-Encoding": "identity"})
+    return urllib.request.urlopen(req, timeout=timeout).read()
+
+
+def edgar_release(sym, since, dbg):
+    """(filed_ts, exhibit_url) of an earnings 8-K (item 2.02) filed after `since`, else None"""
+    import json
+    try:
+        if not _CIK:
+            for r in json.loads(_get("https://www.sec.gov/files/company_tickers.json")).values():
+                _CIK[r["ticker"].upper()] = int(r["cik_str"])
+        cik = _CIK.get(sym.upper())
+        if not cik:
+            dbg["sec"] = "no CIK"
+            return None
+        sub = json.loads(_get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json"))
+        rec = sub["filings"]["recent"]
+        for i, form in enumerate(rec["form"][:40]):
+            if form not in ("8-K", "6-K") or "2.02" not in (rec.get("items") or [""] * 40)[i]:
+                continue
+            ts = int(dt.datetime.fromisoformat(rec["acceptanceDateTime"][i].replace("Z", "+00:00")).timestamp())
+            if ts < since:
+                break
+            acc = rec["accessionNumber"][i].replace("-", "")
+            idx = json.loads(_get(f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/index.json"))
+            files = [f["name"] for f in idx["directory"]["item"]]
+            ex = [f for f in files if re.search(r"ex[-_]?99", f, re.I) and f.lower().endswith((".htm", ".html", ".txt"))]
+            dbg["sec"] = {"filed": rec["acceptanceDateTime"][i], "files": ex[:3]}
+            if ex:
+                return ts, f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/{sorted(ex)[0]}"
+        dbg.setdefault("sec", "no new 8-K 2.02")
+    except Exception as e:
+        dbg["sec"] = f"{type(e).__name__}: {e}"[:120]
+    return None
+
+
 def press_release_eps(url, dbg):
     """(eps, 'adjusted'|'gaap') from the first EPS figure in the release text (its highlights = this quarter)"""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"})
-        html = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "ignore")
+        html = (_get(url) if "sec.gov" in url else urllib.request.urlopen(req, timeout=20).read()).decode("utf-8", "ignore")
     except Exception as e:
         dbg["pr_fetch"] = f"{type(e).__name__}: {e}"[:120]
         return None
