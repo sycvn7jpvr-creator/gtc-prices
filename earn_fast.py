@@ -190,6 +190,7 @@ def fast_result(t, sym, names, ev, dbg):
             best.setdefault("released", ts)
             best.setdefault("pr", text[:160])
             best.setdefault("pr_url", url)
+    sec = edgar_release(sym, since, dbg) if "." not in sym else None  # also checked when a headline has it (keeps it tested)
     if "rank" in best:
         r = {k: best[k] for k in ("reported", "eps", "diff", "surprise", "dir") if k in best}
         if "diff" in r and ev.get("eps") is not None:  # actual = consensus + difference
@@ -199,7 +200,6 @@ def fast_result(t, sym, names, ev, dbg):
         dbg["fast_headline"] = best["headline"]
         return r
     # US companies file the press release with the SEC (8-K, item 2.02) within minutes: read EPS from there
-    sec = edgar_release(sym, since, dbg) if "." not in sym else None
     if sec:
         best.setdefault("released", sec[0])
         best.setdefault("pr", "SEC 8-K")
