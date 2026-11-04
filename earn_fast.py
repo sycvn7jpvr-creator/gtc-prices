@@ -223,7 +223,7 @@ EPS_LINE = re.compile(
 EPS_SHORT = re.compile(r"(?P<adj>adjusted\s+|non-gaap\s+)?(?:diluted\s+)?EPS(?:\s+(?:was|were|of))?\s*(?P<v>\(?-?\$\s?\(?\d+\.\d+\)?)", re.I)
 
 
-SEC_UA = "gtc-prices tracker github.com/sycvn7jpvr-creator/gtc-prices"
+SEC_UA = "gtc-prices tracker sycvn7jpvr-creator@users.noreply.github.com"
 _CIK = {}
 
 
