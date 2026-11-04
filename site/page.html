@@ -1199,7 +1199,10 @@ function renderAlerts(C){
     if(!x.past) return `<button type="button" class="eb-row" data-hit="${esc(x.p.ticker)}">
       <span class="eb-n">${esc(x.p.name||x.p.ticker)}</span><span class="eb-w num">${x.days===2?x.wd:x.when}${x.time?` · ${x.time}`:" · time tbc"}</span><span class="eb-go" aria-hidden="true">›</span></button>`;
     const e=x.e, eps=v=>v==null?"–":n2.format(v);
-    const res=x.sur?`<span class="${x.sur.cls}">${esc(x.sur.word)}</span> <span class="eb-d">(EPS ${eps(e.reported)} vs ${eps(e.eps)} exp.)</span>`:`<span class="eb-d">numbers not in yet</span>`;
+    const pair=e.reported!=null?` <span class="eb-d">(EPS ${eps(e.reported)} vs ${eps(e.eps)} exp.${e.src?" · "+esc(e.src):""})</span>`:e.src?` <span class="eb-d">(${esc(e.src)})</span>`:"";
+    const res=x.sur?`<span class="${x.sur.cls}">${esc(x.sur.word)}</span>${pair}`
+      :e.released?`<span class="eb-d">results out ${berlinHM(e.released*1000)}, EPS not in the feeds yet</span>`
+      :`<span class="eb-d">waiting for the numbers</span>`;
     const rea=x.mv?` · stock <b class="${cls(x.mv.now)}">${pctS(x.mv.now)}</b>${x.rea?` <span class="${x.rea.cls}">${esc(x.rea.word)}</span>`:""}`:"";
     return `<button type="button" class="eb-row done" data-hit="${esc(x.p.ticker)}">
       <span class="eb-n">${esc(x.p.name||x.p.ticker)}<small class="eb-res">Reported ${x.when}${x.time?" "+x.time:""} · ${res}${rea}</small></span><span class="eb-go" aria-hidden="true">›</span></button>`;
@@ -1527,6 +1530,7 @@ const pctS=v=>(v>=0?"+":"−")+n1.format(Math.abs(v*100))+"%";
 /* EPS vs analysts: in line within ±2%, slight up to ±10%, strong beyond */
 function surpriseInfo(e){
   let s=e.surprise; if(s==null&&e.reported!=null&&e.eps) s=(e.reported-e.eps)/Math.abs(e.eps)*100;
+  if((s==null||!isFinite(s))&&e.dir) return {s:null, word:e.dir==="inline"?"in line":e.dir, cls:e.dir==="beat"?"up":e.dir==="miss"?"down":"flat"};
   if(s==null||!isFinite(s)) return null;
   const a=Math.abs(s), word=a<2?"in line":(a<10?"slight ":"strong ")+(s>0?"beat":"miss");
   return {s, word, cls:a<2?"flat":s>0?"up":"down"};

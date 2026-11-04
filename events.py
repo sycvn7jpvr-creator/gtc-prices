@@ -13,6 +13,7 @@ from pathlib import Path
 import yfinance as yf
 
 from fetch_prices import to_yahoo
+from earn_fast import fast_result
 
 ROOT = Path(__file__).parent
 OUT = ROOT / "data" / "events.json"
@@ -55,7 +56,7 @@ def in_window(d):
     return d is not None and TODAY - dt.timedelta(days=1) <= d <= TODAY + dt.timedelta(days=HORIZON_DAYS)
 
 
-def events_for(sym, dbg):
+def events_for(sym, dbg, names=()):
     t = yf.Ticker(sym)
     out = []
     info, cal, ed = {}, {}, None
@@ -145,6 +146,27 @@ def events_for(sym, dbg):
     pay = as_date(cal.get("Dividend Date")) or as_date(info.get("dividendDate"))
     if in_window(pay) and pay >= TODAY:
         out.append({"type": "divpay", "date": pay.isoformat(), "amount": last_div, "ccy": ccy})
+    # release time passed but Yahoo's table has no numbers yet: look in faster places (earn_fast.py)
+    now = dt.datetime.now(dt.timezone.utc).timestamp()
+    for e in out:
+        if e["type"] != "earnings" or e.get("past"):
+            continue
+        d = as_date(e["date"])
+        due = (e.get("ts") and e["ts"] <= now) or (not e.get("timeKnown") and d <= TODAY)
+        if due and d >= TODAY - dt.timedelta(days=RECENT_DAYS):
+            fdbg = {}
+            try:
+                r = fast_result(t, sym, list(names), e, fdbg)
+            except Exception as ex:
+                fdbg["error"] = f"{type(ex).__name__}: {ex}"[:160]
+                r = None
+            dbg["fast"] = fdbg
+            if r and ("reported" in r or "surprise" in r or "dir" in r):
+                if r.get("reported") is not None and r.get("eps") and r.get("surprise") is None:
+                    r["surprise"] = round((r["reported"] - r["eps"]) / abs(r["eps"]) * 100, 2)
+                e.update(r, past=True)
+            elif r and "released" in r:
+                e["released"] = r["released"]
     out += recent
     return sorted(out, key=lambda e: e["date"])
 
@@ -180,12 +202,25 @@ def main():
         except Exception:
             prev = {}
     out = {"updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "items": {}, "debug": {}}
+    try:
+        from news import names_by_ticker, short_names
+        nm = names_by_ticker()
+        names = {k: short_names(v) for k, v in nm.items()}
+    except Exception:
+        names = {}
     for bbg in tickers():
         dbg = {}
         try:
             sym = to_yahoo(bbg)[0]
             dbg["sym"] = sym
-            ev = events_for(sym, dbg)
+            ev = events_for(sym, dbg, names.get(bbg, ()))
+            # a result found earlier (e.g. from a headline) stays until Yahoo's own table has it
+            have = {e["date"] for e in ev if e["type"] == "earnings" and e.get("past") and e.get("reported") is not None}
+            for pe in prev.get(bbg, []):
+                if pe.get("type") == "earnings" and pe.get("past") and pe["date"] not in have \
+                        and pe["date"] >= (TODAY - dt.timedelta(days=RECENT_DAYS)).isoformat():
+                    ev = [e for e in ev if not (e["type"] == "earnings" and e["date"] == pe["date"] and not e.get("reported"))]
+                    ev.append(pe)
             failed = "info_error" in dbg and "calendar_error" in dbg and "earnings_dates_error" in dbg
             # keep the last good list if Yahoo failed completely this time; drop events that are now in the past
             if failed and bbg in prev:
