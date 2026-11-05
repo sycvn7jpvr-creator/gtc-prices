@@ -31,7 +31,10 @@ EXCH = {
     "HK": (".HK", "HKD"), "CN": (".TO", "CAD"), "CT": (".TO", "CAD"),
     "KS": (".KS", "KRW"), "SP": (".SI", "SGD"), "TB": (".BK", "THB"),
     "SJ": (".JO", "ZAR"), "IJ": (".JK", "IDR"), "MK": (".KL", "MYR"),
+    "IS": (".NS", "INR"), "IN": (".NS", "INR"), "IB": (".BO", "INR"),
 }
+# Bloomberg root -> exchange symbol where they differ
+ROOTS = {"ATHERENE IS": "ATHERENERG"}
 BENCH_SYM = "ACWI"
 BENCH_NAME = "iShares MSCI ACWI ETF (WLS proxy)"
 
@@ -42,6 +45,7 @@ MINOR = {".L": 100.0, ".JO": 100.0}
 def to_yahoo(bbg):
     parts = bbg.upper().replace(" EQUITY", "").split()
     root, code = " ".join(parts[:-1]), parts[-1]
+    root = ROOTS.get(f"{root} {code}", root)
     suffix, ccy = EXCH[code]
     root = root.replace("/", "-")
     if suffix == ".HK":

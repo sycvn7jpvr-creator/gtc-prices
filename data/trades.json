@@ -454,5 +454,35 @@
   "fillDate": "2026-11-04",
   "createdAt": "2026-11-04T20:10:00+01:00",
   "note": "Bought in TMSG · 27,027 shares, total cash in 95,135 USD · ATR20 0.1757"
+ },
+ {
+  "side": "BUY",
+  "shares": null,
+  "ccy": "INR",
+  "fx": null,
+  "price": null,
+  "usd": 100000,
+  "date": "2026-11-05",
+  "orderTs": 1793886597,
+  "createdAt": "2026-11-05T14:49+01:00",
+  "id": "t24",
+  "ticker": "ATHERENE IS",
+  "name": "Ather Energy",
+  "note": "Order in TMSG · Next Tick at the NSE open · cash ~100,000 USD (estimate until the TMSG fill)"
+ },
+ {
+  "side": "BUY",
+  "shares": null,
+  "ccy": "INR",
+  "fx": null,
+  "price": null,
+  "usd": 100000,
+  "date": "2026-11-05",
+  "orderTs": 1793886597,
+  "createdAt": "2026-11-05T14:49+01:00",
+  "id": "t25",
+  "ticker": "CPPLUS IS",
+  "name": "Aditya Infotech",
+  "note": "Order in TMSG · Next Tick at the NSE open · cash ~100,000 USD (estimate until the TMSG fill)"
  }
 ]
