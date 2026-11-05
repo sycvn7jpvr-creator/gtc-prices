@@ -5,7 +5,7 @@
   "date": "2026-10-14",
   "fillDate": "2026-10-15",
   "fillTs": 1792047600,
-  "fx": 1.12171,
+  "fx": 1.120915,
   "id": "t01",
   "name": "CMB.TECH",
   "note": "Opening position · Strategy15 rank 1",
@@ -13,7 +13,7 @@
   "shares": null,
   "side": "BUY",
   "ticker": "CMBT BB",
-  "usd": 100000,
+  "usd": 99984,
   "relAnchor": {
    "ts": 1793627820,
    "b": -0.01432,
