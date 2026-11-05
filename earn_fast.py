@@ -193,9 +193,9 @@ def fast_result(t, sym, names, ev, dbg):
     sec = edgar_release(sym, since, dbg) if SEC_ON and "." not in sym else None
     if "rank" in best:
         r = {k: best[k] for k in ("reported", "eps", "diff", "surprise", "dir") if k in best}
-        if "diff" in r and ev.get("eps") is not None:  # actual = consensus + difference
-            r["eps"], r["reported"] = ev["eps"], round(ev["eps"] + r.pop("diff"), 4)
-        r.pop("diff", None)
+        if "diff" in r:  # "beat by $0.11" is against that site's own consensus: keep only the direction
+            d = r.pop("diff")
+            r["dir"] = "beat" if d > 0 else "miss" if d < 0 else "inline"
         r["src"] = best["src"]
         dbg["fast_headline"] = best["headline"]
         return r

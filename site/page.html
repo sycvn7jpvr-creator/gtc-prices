@@ -1569,8 +1569,10 @@ function earningsSoon(C){
     const all=(((S.events&&S.events.items)||{})[p.ticker]||[]).filter(x=>x.type==="earnings");
     const code=p.ticker.split(" ").pop(), M=MARKETS.find(m=>m.codes.includes(code));
     /* reported in the last 2 days: show the result */
-    const done=all.filter(x=>x.past&&dnum(td)-dnum(x.date)<=2).sort((a,b)=>a.date<b.date?1:-1)[0];
-    const e=done||all.filter(x=>!x.past&&x.date>=td).sort((a,b)=>a.date<b.date?-1:1)[0];
+    /* a result stays on the report day and until noon (German time) the day after, then it's history */
+    const fresh=x=>x.date===td||(dnum(td)-dnum(x.date)===1&&berlinHM(Date.now())<"12:00");
+    const done=all.filter(x=>x.past&&fresh(x)).sort((a,b)=>a.date<b.date?1:-1)[0];
+    const e=done||all.filter(x=>!x.past&&x.date>=td&&!(x.released&&!fresh(x))).sort((a,b)=>a.date<b.date?-1:1)[0];
     if(!e) continue;
     const days=dnum(e.date)-dnum(td); if(days>2||days<-2) continue;
     const known=!!(e.timeKnown&&e.ts&&M&&M.name==="New York");  /* Yahoo's release times are reliable for US stocks only */
