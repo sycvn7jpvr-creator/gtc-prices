@@ -430,7 +430,11 @@
   "atr20": 175.3696,
   "orderTs": 1793819817,
   "createdAt": "2026-11-04T20:16+01:00",
-  "note": "Order in TMSG · Next Tick at the Tokyo open · cash ~95,000 USD (estimate until the TMSG fill) · ATR20 175.3696 JPY"
+  "note": "Order in TMSG · Next Tick at the Tokyo open · cash ~95,000 USD (estimate until the TMSG fill) · ATR20 175.3696 JPY",
+  "estPrice": 4796.0,
+  "estTs": 1793836800,
+  "estDate": "2026-11-05",
+  "estFx": 0.006312254816293716
  },
  {
   "side": "BUY",
