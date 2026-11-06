@@ -1,6 +1,5 @@
 <style id="gate">body{visibility:hidden}</style>
 <title>GTC Mid-Cap Book</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
@@ -1431,7 +1430,7 @@ function render(){
     $("#view").innerHTML=`<div class="note"><div><b>Couldn't load the data just now.</b> Trying again automatically… (check your connection if this stays)</div></div>`; return;
   }
   if(S.dbState==="none"){
-    $("#view").innerHTML=`<div class="note"><div><b>Shared data isn't available in this view.</b> Open the page on claude.ai while signed in to see and log trades.</div></div>`;
+    $("#view").innerHTML=`<div class="note"><div><b>Data isn't available right now.</b> Please reload the page in a moment.</div></div>`;
     $("#chartArea").innerHTML=""; $("#fab").hidden=true; return;
   }
   if(!(S.got.trades&&S.got.prices)){ return; }
@@ -1624,7 +1623,7 @@ function eventRow(e,tk){
     <div class="r-sub">${sub.join(" · ")}</div></div>`;
 }
 function eventsHTML(tk){
-  if(!S.events) return "";  /* no event data loaded (e.g. the private Claude page) */
+  if(!S.events) return "";  /* no event data loaded */
   const ev=eventsFor(tk);
   return `<div id="sEvents"><div class="eyebrow">Upcoming events</div>
     <div class="list" style="box-shadow:none;border:1px solid var(--line);margin-top:14px">${ev.length?ev.map(e=>eventRow(e,tk)).join(""):
@@ -1975,21 +1974,7 @@ function showPaused(){ document.body.innerHTML=""; }
 (async()=>{
   if(PAUSED && !(await ownerOK())){ showPaused(); return; }
   const g=document.getElementById("gate"); if(g) g.remove();
-  const cl=window.claude;
-  if(!cl || !cl.use){ staticBoot(); return; }
-  const [db,user]=await Promise.all([cl.use("db").catch(()=>null), cl.use("user").catch(()=>null)]);
-  if(!db){ staticBoot(); return; }
-  S.db=db; S.user=user; S.dbState="ok";
-  if(user){
-    try{ S.myId=await user.id(); }catch(e){}
-    try{ const c=await user.can("data.write"); if(c===false) S.canWrite=false; }catch(e){}
-  }
-  const onErr=e=>{ if(e&&e.code==="revoked"){ S.dbState="none"; render(); } };
-  db.collection("trades").onSnapshot(s=>{ S.trades=s.docs.map(d=>Object.assign({},d.data(),{id:d.id})); S.got.trades=true; render(); }, onErr);
-  db.collection("prices").onSnapshot(s=>{ S.prices=s.docs.map(d=>Object.assign({},d.data(),{date:d.id})); S.got.prices=true; render(); }, onErr);
-  db.collection("market").onSnapshot(s=>{ const m={latest:null,history:null}; s.docs.forEach(d=>{ if(d.id in m) m[d.id]=d.data(); }); S.market=m; render(); }, onErr);
-  db.doc("settings/levels").onSnapshot(s=>{ S.levels=s.exists?(s.data()||{}):{}; render(); }, onErr);
-  db.doc("settings/main").onSnapshot(s=>{ if(s.exists) S.settings=Object.assign({},S.settings,s.data()); render(); }, onErr);
+  staticBoot();
 })();
 })();
 </script>
