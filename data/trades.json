@@ -303,9 +303,9 @@
   "fillTs": 1792738800,
   "fillDate": "2026-10-23",
   "relAnchor": {
-   "ts": 1793627820,
-   "b": -0.005438,
-   "src": "TMSG Trade Ideas 2 Nov ~14:57 (P&L - Rel P&L)"
+   "ts": 1793973300,
+   "b": -0.033791,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
   }
  },
  {
@@ -323,7 +323,12 @@
   "side": "BUY",
   "ticker": "PLSE UR",
   "usd": 98489,
-  "atr20": 3.0416
+  "atr20": 3.0416,
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.027871,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "USD",
@@ -340,7 +345,12 @@
   "side": "BUY",
   "ticker": "KOD UQ",
   "usd": 98442,
-  "atr20": 6.5358
+  "atr20": 6.5358,
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.027874,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "USD",
@@ -375,7 +385,12 @@
   "side": "BUY",
   "ticker": "SYRE UW",
   "usd": 98498,
-  "atr20": 4.4906
+  "atr20": 4.4906,
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.027869,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  },
  {
   "ccy": "DKK",
@@ -414,7 +429,12 @@
   "fillTs": 1793819400,
   "fillDate": "2026-11-04",
   "createdAt": "2026-11-04T20:10:00+01:00",
-  "note": "3rd Hinge · bought in TMSG · 790 shares, total cash in 94,930 USD · ATR20 4.8486"
+  "note": "3rd Hinge · bought in TMSG · 790 shares, total cash in 94,930 USD · ATR20 4.8486",
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.025229,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  },
  {
   "side": "BUY",
@@ -436,7 +456,12 @@
   "estDate": "2026-11-05",
   "estFx": 0.006312254816293716,
   "fillTs": 1793836800,
-  "fillDate": "2026-11-05"
+  "fillDate": "2026-11-05",
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.038468,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  },
  {
   "side": "BUY",
@@ -475,7 +500,12 @@
   "estFx": 0.01059064082801342,
   "atr20": 79.4794,
   "fillTs": 1793936700,
-  "fillDate": "2026-11-06"
+  "fillDate": "2026-11-06",
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.010407,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  },
  {
   "side": "BUY",
@@ -497,6 +527,11 @@
   "estFx": 0.01059064082801342,
   "atr20": 205.722,
   "fillTs": 1793936700,
-  "fillDate": "2026-11-06"
+  "fillDate": "2026-11-06",
+  "relAnchor": {
+   "ts": 1793973300,
+   "b": -0.010411,
+   "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
+  }
  }
 ]
