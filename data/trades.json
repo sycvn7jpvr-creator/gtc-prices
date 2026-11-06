@@ -533,5 +533,35 @@
    "b": -0.010411,
    "src": "TMSG Trade Ideas 6 Nov ~14:55 (P&L - Rel P&L)"
   }
+ },
+ {
+  "side": "BUY",
+  "shares": null,
+  "price": null,
+  "usd": 90000,
+  "date": "2026-11-06",
+  "orderTs": 1793980231,
+  "createdAt": "2026-11-06T16:50+01:00",
+  "id": "t26",
+  "ticker": "PRCH UR",
+  "name": "Porch Group",
+  "ccy": "USD",
+  "fx": 1.0,
+  "note": "Order in TMSG · Next Tick (US market open) · cash ~90,000 USD (estimate until the TMSG fill)"
+ },
+ {
+  "side": "BUY",
+  "shares": null,
+  "price": null,
+  "usd": 90000,
+  "date": "2026-11-06",
+  "orderTs": 1793980231,
+  "createdAt": "2026-11-06T16:50+01:00",
+  "id": "t27",
+  "ticker": "2531 JT",
+  "name": "Takara Holdings",
+  "ccy": "JPY",
+  "fx": 0.00631852,
+  "note": "Order in TMSG · Next Tick at the Tokyo open (Mon 9 Nov, 01:00) · cash ~90,000 USD (estimate until the TMSG fill)"
  }
 ]
