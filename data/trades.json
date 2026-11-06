@@ -468,7 +468,11 @@
   "id": "t24",
   "ticker": "ATHERENE IS",
   "name": "Ather Energy",
-  "note": "Order in TMSG · Next Tick at the NSE open · cash ~100,000 USD (estimate until the TMSG fill)"
+  "note": "Order in TMSG · Next Tick at the NSE open · cash ~100,000 USD (estimate until the TMSG fill)",
+  "estPrice": 1775.0,
+  "estTs": 1793936700,
+  "estDate": "2026-11-06",
+  "estFx": 0.01059064082801342
  },
  {
   "side": "BUY",
@@ -483,6 +487,10 @@
   "id": "t25",
   "ticker": "CPPLUS IS",
   "name": "Aditya Infotech",
-  "note": "Order in TMSG · Next Tick at the NSE open · cash ~100,000 USD (estimate until the TMSG fill)"
+  "note": "Order in TMSG · Next Tick at the NSE open · cash ~100,000 USD (estimate until the TMSG fill)",
+  "estPrice": 4315.0,
+  "estTs": 1793936700,
+  "estDate": "2026-11-06",
+  "estFx": 0.01059064082801342
  }
 ]
