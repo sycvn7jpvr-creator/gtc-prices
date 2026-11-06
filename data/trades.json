@@ -537,8 +537,8 @@
  {
   "side": "BUY",
   "shares": null,
-  "price": null,
-  "usd": 90000,
+  "price": 20.12,
+  "usd": 90019,
   "date": "2026-11-06",
   "orderTs": 1793980231,
   "createdAt": "2026-11-06T16:50+01:00",
@@ -547,7 +547,10 @@
   "name": "Porch Group",
   "ccy": "USD",
   "fx": 1.0,
-  "note": "Order in TMSG · Next Tick (US market open) · cash ~90,000 USD (estimate until the TMSG fill)"
+  "note": "Bought in TMSG · Next Tick · 4,473 shares, total cash in 90,019 USD · ATR20 0.7868",
+  "atr20": 0.7868,
+  "fillTs": 1793980231,
+  "fillDate": "2026-11-06"
  },
  {
   "side": "BUY",
