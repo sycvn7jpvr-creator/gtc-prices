@@ -555,8 +555,8 @@
  {
   "side": "BUY",
   "shares": null,
-  "price": null,
-  "usd": 90000,
+  "price": 3070.0,
+  "usd": 90013,
   "date": "2026-11-06",
   "orderTs": 1793980231,
   "createdAt": "2026-11-06T16:50+01:00",
@@ -564,11 +564,14 @@
   "ticker": "2531 JT",
   "name": "Takara Holdings",
   "ccy": "JPY",
-  "fx": 0.00631852,
-  "note": "Order in TMSG · Next Tick at the Tokyo open (Mon 9 Nov, 01:00) · cash ~90,000 USD (estimate until the TMSG fill)",
+  "fx": 0.0063190076,
+  "note": "Bought in TMSG · Next Tick at the Tokyo open · 4,640 shares, total cash in 90,013 USD · ATR20 107.8607 JPY",
   "estPrice": 3070.0,
   "estTs": 1794182400,
   "estDate": "2026-11-09",
-  "estFx": 0.006320952903479338
+  "estFx": 0.006320952903479338,
+  "atr20": 107.8607,
+  "fillTs": 1794182400,
+  "fillDate": "2026-11-09"
  }
 ]
