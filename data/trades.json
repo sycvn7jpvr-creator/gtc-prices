@@ -565,6 +565,10 @@
   "name": "Takara Holdings",
   "ccy": "JPY",
   "fx": 0.00631852,
-  "note": "Order in TMSG · Next Tick at the Tokyo open (Mon 9 Nov, 01:00) · cash ~90,000 USD (estimate until the TMSG fill)"
+  "note": "Order in TMSG · Next Tick at the Tokyo open (Mon 9 Nov, 01:00) · cash ~90,000 USD (estimate until the TMSG fill)",
+  "estPrice": 3070.0,
+  "estTs": 1794182400,
+  "estDate": "2026-11-09",
+  "estFx": 0.006320952903479338
  }
 ]
