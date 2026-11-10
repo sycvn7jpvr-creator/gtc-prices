@@ -573,5 +573,22 @@
   "atr20": 107.8607,
   "fillTs": 1794182400,
   "fillDate": "2026-11-09"
+ },
+ {
+  "id": "t28",
+  "ticker": "AMPL UR",
+  "name": "Amplitude",
+  "side": "BUY",
+  "shares": null,
+  "ccy": "USD",
+  "fx": 1.0,
+  "price": 16.68,
+  "usd": 85010,
+  "atr20": 0.4311,
+  "date": "2026-11-10",
+  "fillTs": 1794326400,
+  "fillDate": "2026-11-10",
+  "createdAt": "2026-11-10T21:20+01:00",
+  "note": "Bought in TMSG · Next Tick · 5,095 shares, total cash in 85,010 USD · ATR20 0.4311 · picked over CareDx (#1), which is the 3rd GICS biotech"
  }
 ]
